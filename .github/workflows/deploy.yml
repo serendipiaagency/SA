@@ -1,0 +1,42 @@
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [main, claude/optimized-itinerary-module-3j6dW]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build & Deploy Worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Build React frontend
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      # Copy dist into worker so wrangler serves it as assets
+      - name: Copy dist to worker
+        run: cp -r frontend/dist worker/dist
+
+      # Deploy Worker (includes static assets)
+      - name: Install worker deps
+        working-directory: worker
+        run: npm ci
+
+      - name: Deploy Worker + Assets
+        working-directory: worker
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 31ed53ac2e7ebd095af5b7c407885124
