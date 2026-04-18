@@ -1,4 +1,4 @@
-const BASE = "/api/itineraries";
+const BASE = `${import.meta.env.VITE_API_BASE || ""}/api/itineraries`;
 
 export async function fetchDestinations() {
   const r = await fetch(`${BASE}/destinations`);
