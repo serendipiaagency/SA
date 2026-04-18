@@ -1,20 +1,20 @@
-const BASE = `${import.meta.env.VITE_API_BASE || ""}/api/itineraries`;
+const BASE = '/api/itineraries';
 
 export async function fetchDestinations() {
   const r = await fetch(`${BASE}/destinations`);
-  if (!r.ok) throw new Error("Failed to load destinations");
+  if (!r.ok) throw new Error('Failed to load destinations');
   return r.json();
 }
 
 export async function createItinerary(payload) {
   const r = await fetch(BASE, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to create itinerary");
+    throw new Error(err.detail || 'Failed to create itinerary');
   }
   return r.json();
 }

@@ -4,6 +4,7 @@ import { buildDays, dateRange, Activity } from './algorithm';
 
 export interface Env {
   DB: D1Database;
+  ASSETS: Fetcher;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -153,5 +154,8 @@ app.get('/api/itineraries/:id', async (c) => {
 
   return c.json({ ...itin, days: fullDays });
 });
+
+// Serve static frontend assets for all other routes
+app.all('*', async (c) => c.env.ASSETS.fetch(c.req.raw));
 
 export default app;

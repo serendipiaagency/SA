@@ -2,6 +2,10 @@ name = "sa-itinerary-worker"
 main = "src/index.ts"
 compatibility_date = "2024-07-25"
 
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "serendipia_jobs_db"

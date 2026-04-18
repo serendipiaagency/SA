@@ -1,57 +1,56 @@
-import { useState } from "react";
-import ItineraryForm from "./components/ItineraryForm.jsx";
-import ItineraryDisplay from "./components/ItineraryDisplay.jsx";
+import { useState } from 'react';
+import HomePage from './pages/HomePage.jsx';
+import PlannerPage from './pages/PlannerPage.jsx';
+import ItineraryPage from './pages/ItineraryPage.jsx';
 
 export default function App() {
+  const [view, setView] = useState('home'); // home | planner | itinerary
+  const [selectedDest, setSelectedDest] = useState(null);
   const [itinerary, setItinerary] = useState(null);
-  const [loading, setLoading] = useState(false);
+
+  function handlePickDest(dest) {
+    setSelectedDest(dest);
+    setView('planner');
+  }
+
+  function handleItinerary(itin) {
+    setItinerary(itin);
+    setView('itinerary');
+  }
+
+  function handleReset() {
+    setItinerary(null);
+    setSelectedDest(null);
+    setView('home');
+  }
 
   return (
-    <div style={styles.page}>
-      <header style={styles.header}>
-        <span style={styles.logo}>SA</span>
-        <span style={styles.tagline}>Serendipia Agency — Itinerary Planner</span>
-      </header>
-
-      <main style={styles.main}>
-        {loading && (
-          <div style={styles.loadingOverlay}>
-            <div style={styles.spinner} />
-            <p style={styles.loadingText}>Building your itinerary…</p>
-          </div>
-        )}
-
-        {!loading && !itinerary && (
-          <ItineraryForm onResult={setItinerary} onLoading={setLoading} />
-        )}
-
-        {!loading && itinerary && (
-          <ItineraryDisplay itinerary={itinerary} onReset={() => setItinerary(null)} />
-        )}
-      </main>
-    </div>
+    <>
+      <style>{GLOBAL_CSS}</style>
+      {view === 'home' && <HomePage onPickDest={handlePickDest} />}
+      {view === 'planner' && (
+        <PlannerPage
+          destination={selectedDest}
+          onResult={handleItinerary}
+          onBack={() => setView('home')}
+        />
+      )}
+      {view === 'itinerary' && (
+        <ItineraryPage itinerary={itinerary} onReset={handleReset} />
+      )}
+    </>
   );
 }
 
-const styles = {
-  page: { minHeight: "100vh", display: "flex", flexDirection: "column" },
-  header: {
-    padding: "20px 32px", borderBottom: "1px solid #e0ddd8",
-    display: "flex", alignItems: "center", gap: 16, background: "#fff",
-  },
-  logo: { fontSize: 22, fontWeight: 900, letterSpacing: -1 },
-  tagline: { fontSize: 14, color: "#888" },
-  main: {
-    flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-    padding: "48px 24px",
-  },
-  loadingOverlay: {
-    display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
-  },
-  spinner: {
-    width: 48, height: 48, border: "4px solid #e0ddd8",
-    borderTopColor: "#1a1a1a", borderRadius: "50%",
-    animation: "spin 0.8s linear infinite",
-  },
-  loadingText: { color: "#555", fontSize: 16 },
-};
+const GLOBAL_CSS = `
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #FFFBF5; color: #1A1A1A; }
+  button { font-family: inherit; cursor: pointer; }
+  input, select { font-family: inherit; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .fade-up { animation: fadeUp 0.5s ease both; }
+`;
