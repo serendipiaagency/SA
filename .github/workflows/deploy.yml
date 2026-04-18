@@ -52,6 +52,12 @@ jobs:
         env:
           VITE_API_BASE: https://sa-itinerary-worker.serendipiaagency.workers.dev
 
+      - name: Create Pages project (if not exists)
+        run: npx wrangler pages project create sa-itinerary --production-branch=main || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 31ed53ac2e7ebd095af5b7c407885124
+
       - name: Deploy to Cloudflare Pages
         run: npx wrangler pages deploy dist --project-name=sa-itinerary --branch=main
         env:
