@@ -4,12 +4,25 @@ import PlannerPage from './pages/PlannerPage.jsx';
 import ItineraryPage from './pages/ItineraryPage.jsx';
 import { getItinerary } from './api.js';
 
+const SITE = 'Serendipia Agency';
+
 export default function App() {
   const [view, setView] = useState('home');
   const [selectedDest, setSelectedDest] = useState(null);
   const [itinerary, setItinerary] = useState(null);
   const [loadingShared, setLoadingShared] = useState(false);
   const [sharedError, setSharedError] = useState(false);
+
+  // Dynamic document title
+  useEffect(() => {
+    if (view === 'itinerary' && itinerary?.destination?.name) {
+      document.title = `Itinerario en ${itinerary.destination.name} · ${SITE}`;
+    } else if (view === 'planner' && selectedDest?.name) {
+      document.title = `Planificar en ${selectedDest.name} · ${SITE}`;
+    } else {
+      document.title = `Planifica tu viaje · ${SITE}`;
+    }
+  }, [view, selectedDest, itinerary]);
 
   // Load shared itinerary from ?id= URL param
   useEffect(() => {
@@ -32,6 +45,32 @@ export default function App() {
     setItinerary(itin);
     setView('itinerary');
     window.history.pushState({}, '', `?id=${itin.id}`);
+    try {
+      const dest = itin.destination || {};
+      const saved = JSON.parse(localStorage.getItem('sa_trips') || '[]');
+      const entry = {
+        id: itin.id, destName: dest.name, country: dest.country,
+        startDate: itin.start_date, endDate: itin.end_date,
+        totalCost: Math.round(itin.total_cost), savedAt: Date.now(),
+      };
+      localStorage.setItem('sa_trips', JSON.stringify(
+        [entry, ...saved.filter(t => t.id !== itin.id)].slice(0, 10)
+      ));
+    } catch {}
+  }
+
+  async function handleOpenTrip(id) {
+    setLoadingShared(true);
+    try {
+      const itin = await getItinerary(id);
+      setItinerary(itin);
+      setView('itinerary');
+      window.history.pushState({}, '', `?id=${id}`);
+    } catch {
+      setSharedError(true);
+    } finally {
+      setLoadingShared(false);
+    }
   }
 
   function handleReset() {
@@ -78,7 +117,7 @@ export default function App() {
   return (
     <>
       <style>{GLOBAL_CSS}</style>
-      {view === 'home' && <HomePage onPickDest={handlePickDest} />}
+      {view === 'home' && <HomePage onPickDest={handlePickDest} onOpenTrip={handleOpenTrip} />}
       {view === 'planner' && (
         <PlannerPage destination={selectedDest} onResult={handleItinerary} onBack={() => setView('home')} />
       )}

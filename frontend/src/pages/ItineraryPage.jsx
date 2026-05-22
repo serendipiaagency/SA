@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import ActivityCard from '../components/ActivityCard.jsx';
 import MapView from '../components/MapView.jsx';
+import FullRouteMap from '../components/FullRouteMap.jsx';
 
 const MONTHS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
@@ -38,6 +39,7 @@ function shareItinerary(id) {
 
 export default function ItineraryPage({ itinerary, onReset }) {
   const [mapDays, setMapDays] = useState({});
+  const [showFullRoute, setShowFullRoute] = useState(false);
   const dest = itinerary.destination || {};
   const photoId = DEST_PHOTO[dest.name];
   const heroImg = photoId
@@ -62,6 +64,12 @@ export default function ItineraryPage({ itinerary, onReset }) {
   });
 
   const totalActivities = itinerary.days.reduce((s, d) => s + d.items.length, 0);
+  const allItems = itinerary.days.flatMap(d => d.items);
+  const freeCount = allItems.filter(i => i.activity.price === 0).length;
+  const paidCount = allItems.filter(i => i.activity.price > 0).length;
+  const avgRating = allItems.length > 0
+    ? allItems.reduce((s, i) => s + (i.activity.rating || 0), 0) / allItems.length : 0;
+  const totalDurH = Math.round(allItems.reduce((s, i) => s + (i.activity.duration_minutes || 0), 0) / 60);
   const days = itinerary.days.length;
   const budgetUsed = itinerary.total_cost;
   const budgetPct = Math.min(100, (budgetUsed / itinerary.budget) * 100);
@@ -170,6 +178,36 @@ export default function ItineraryPage({ itinerary, onReset }) {
             </div>
           </div>
         </div>
+
+        {/* Stats bar */}
+        <div style={s.statsBar} className="no-print">
+          <div style={s.statItem}>
+            <span style={s.statNum}>★ {avgRating.toFixed(1)}</span>
+            <span style={s.statLbl}>promedio</span>
+          </div>
+          <div style={s.statSep} />
+          <div style={s.statItem}>
+            <span style={s.statNum}>{freeCount}</span>
+            <span style={s.statLbl}>gratis</span>
+          </div>
+          <div style={s.statSep} />
+          <div style={s.statItem}>
+            <span style={s.statNum}>{paidCount}</span>
+            <span style={s.statLbl}>de pago</span>
+          </div>
+          <div style={s.statSep} />
+          <div style={s.statItem}>
+            <span style={s.statNum}>~{totalDurH}h</span>
+            <span style={s.statLbl}>actividades</span>
+          </div>
+          <button style={s.routeBtn} onClick={() => setShowFullRoute(true)}>
+            🗺️ Ruta completa
+          </button>
+        </div>
+
+        {showFullRoute && (
+          <FullRouteMap days={itinerary.days} onClose={() => setShowFullRoute(false)} />
+        )}
 
         {/* Day blocks */}
         {itinerary.days.map(day => {
@@ -309,6 +347,24 @@ const s = {
   },
   viewToggleOn: { background: '#0D3B2E', color: '#fff', borderColor: '#0D3B2E' },
   empty: { color: '#AAA', fontStyle: 'italic', padding: '16px 0' },
+
+  statsBar: {
+    display:'flex', alignItems:'center', background:'#fff',
+    borderRadius:16, marginBottom:40, border:'1.5px solid #F0EDE8',
+    boxShadow:'0 2px 12px rgba(0,0,0,0.05)', overflow:'hidden', flexWrap:'wrap',
+  },
+  statItem: {
+    display:'flex', flexDirection:'column', alignItems:'center',
+    padding:'16px 20px', flex:'1 1 auto',
+  },
+  statNum: { fontSize:20, fontWeight:800, color:'#0D3B2E' },
+  statLbl: { fontSize:10, color:'#999', fontWeight:700, textTransform:'uppercase', letterSpacing:0.5, marginTop:2 },
+  statSep: { width:1, height:40, background:'#F0EDE8', flexShrink:0 },
+  routeBtn: {
+    background:'#0D3B2E', color:'#fff', border:'none',
+    padding:'12px 18px', fontSize:13, fontWeight:700,
+    margin:10, borderRadius:12, flexShrink:0,
+  },
 
   cta: {
     textAlign: 'center', padding: '48px 0 0', borderTop: '1px solid #EEE',
