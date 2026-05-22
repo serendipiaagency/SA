@@ -36,6 +36,12 @@ export default function ActivityCard({ item, isFirst, prevActivity }) {
 
   return (
     <div style={s.wrapper}>
+      <style>{`
+        @media (max-width: 500px) {
+          .act-img { display: none !important; }
+          .act-time { min-width: 46px !important; }
+        }
+      `}</style>
       {!isFirst && travel_minutes_from_prev > 0 && (
         <div style={s.leg}>
           <div style={s.legLine} />
@@ -54,13 +60,13 @@ export default function ActivityCard({ item, isFirst, prevActivity }) {
       )}
 
       <div style={s.card}>
-        <div style={s.timeCol}>
+        <div style={s.timeCol} className="act-time">
           <span style={s.t1}>{fmt(start_time)}</span>
           <div style={s.tLine} />
           <span style={s.t2}>{fmt(end_time)}</span>
         </div>
 
-        <div style={s.imgWrap}>
+        <div style={s.imgWrap} className="act-img">
           <img src={photo} alt={activity.category} style={s.img}
                onError={e => { e.target.style.display = 'none'; }} />
           <span style={{ ...s.catPill, background: CATEGORY_BG[activity.category], color: CATEGORY_FG[activity.category] }}>

@@ -9,6 +9,7 @@ export default function App() {
   const [selectedDest, setSelectedDest] = useState(null);
   const [itinerary, setItinerary] = useState(null);
   const [loadingShared, setLoadingShared] = useState(false);
+  const [sharedError, setSharedError] = useState(false);
 
   // Load shared itinerary from ?id= URL param
   useEffect(() => {
@@ -17,7 +18,7 @@ export default function App() {
       setLoadingShared(true);
       getItinerary(id)
         .then(itin => { setItinerary(itin); setView('itinerary'); })
-        .catch(() => {})
+        .catch(() => setSharedError(true))
         .finally(() => setLoadingShared(false));
     }
   }, []);
@@ -44,11 +45,31 @@ export default function App() {
     return (
       <>
         <style>{GLOBAL_CSS}</style>
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFFBF5' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 40, marginBottom: 16 }}>🗺️</div>
-            <p style={{ color: '#666', fontSize: 16 }}>Cargando itinerario…</p>
-          </div>
+        <div style={splash}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>🗺️</div>
+          <p style={{ color: '#666', fontSize: 16 }}>Cargando itinerario…</p>
+        </div>
+      </>
+    );
+  }
+
+  if (sharedError) {
+    return (
+      <>
+        <style>{GLOBAL_CSS}</style>
+        <div style={splash}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
+          <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1A1A1A', marginBottom: 8 }}>
+            Itinerario no encontrado
+          </h2>
+          <p style={{ color: '#666', marginBottom: 28, fontSize: 15 }}>
+            El enlace puede haber expirado o ser incorrecto.
+          </p>
+          <button
+            onClick={() => { setSharedError(false); window.history.pushState({}, '', '/'); }}
+            style={{ background: '#0D3B2E', color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 10, fontSize: 15, fontWeight: 700 }}>
+            Volver al inicio
+          </button>
         </div>
       </>
     );
@@ -67,6 +88,12 @@ export default function App() {
     </>
   );
 }
+
+const splash = {
+  minHeight: '100vh', display: 'flex', flexDirection: 'column',
+  alignItems: 'center', justifyContent: 'center',
+  background: '#FFFBF5', textAlign: 'center', padding: 40,
+};
 
 const GLOBAL_CSS = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

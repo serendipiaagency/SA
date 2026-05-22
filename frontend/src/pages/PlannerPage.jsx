@@ -1,5 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createItinerary } from '../api.js';
+
+const LOADING_STEPS = [
+  '🗺️ Analizando destino…',
+  '⭐ Seleccionando las mejores actividades…',
+  '📍 Optimizando la ruta…',
+  '✨ Casi listo…',
+];
 
 const INTERESTS = [
   { value: 'culture',   label: 'Cultura',     emoji: '🏛' },
@@ -35,7 +42,14 @@ export default function PlannerPage({ destination, onResult, onBack }) {
     travelers: 2,
   });
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!loading) { setLoadingStep(0); return; }
+    const t = setInterval(() => setLoadingStep(s => (s + 1) % LOADING_STEPS.length), 900);
+    return () => clearInterval(t);
+  }, [loading]);
 
   function toggleInterest(val) {
     setForm(f => ({
@@ -201,12 +215,26 @@ export default function PlannerPage({ destination, onResult, onBack }) {
           {error && <p style={s.error}>{error}</p>}
 
           <button type="submit" style={s.submit} disabled={loading}>
-            {loading
-              ? <><span style={s.spinner} /> Generando itinerario…</>
-              : '✨ Generar mi itinerario'}
+            ✨ Generar mi itinerario
           </button>
         </form>
       </div>
+
+      {/* Full-screen loading overlay */}
+      {loading && (
+        <div style={s.overlay}>
+          {heroImg && (
+            <img src={heroImg} alt="" style={s.overlayBg} />
+          )}
+          <div style={s.overlayDark} />
+          <div style={s.overlayCard}>
+            <div style={s.overlaySpinner} />
+            <div style={s.overlayCountry}>{destination.country}</div>
+            <h3 style={s.overlayDest}>{destination.name}</h3>
+            <p style={s.overlayStep}>{LOADING_STEPS[loadingStep]}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -298,9 +326,39 @@ const s = {
     background: '#F59E0B', border: 'none', fontSize: 17, fontWeight: 800,
     color: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
   },
-  spinner: {
-    width: 18, height: 18, border: '2px solid rgba(0,0,0,0.2)',
-    borderTopColor: '#1A1A1A', borderRadius: '50%',
-    display: 'inline-block', animation: 'spin 0.8s linear infinite',
+
+  overlay: {
+    position: 'fixed', inset: 0, zIndex: 300,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  overlayBg: {
+    position: 'absolute', inset: 0, width: '100%', height: '100%',
+    objectFit: 'cover', filter: 'blur(18px) brightness(0.45)', transform: 'scale(1.08)',
+  },
+  overlayDark: {
+    position: 'absolute', inset: 0,
+    background: 'rgba(13,59,46,0.55)',
+  },
+  overlayCard: {
+    position: 'relative', zIndex: 1,
+    background: '#fff', borderRadius: 24, padding: '48px 52px',
+    textAlign: 'center', boxShadow: '0 32px 80px rgba(0,0,0,0.35)',
+    maxWidth: 380, width: '90%',
+  },
+  overlaySpinner: {
+    width: 52, height: 52, borderRadius: '50%',
+    border: '4px solid #F0EDE8', borderTopColor: '#0D3B2E',
+    animation: 'spin 0.9s linear infinite',
+    margin: '0 auto 28px',
+  },
+  overlayCountry: {
+    fontSize: 12, fontWeight: 700, color: '#999',
+    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6,
+  },
+  overlayDest: {
+    fontSize: 26, fontWeight: 900, color: '#0D3B2E', marginBottom: 20, letterSpacing: -0.5,
+  },
+  overlayStep: {
+    fontSize: 15, color: '#666', minHeight: 24,
   },
 };
