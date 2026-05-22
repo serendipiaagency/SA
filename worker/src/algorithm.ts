@@ -11,6 +11,7 @@ export interface Activity {
   price: number;
   description: string;
   rating: number;
+  website: string;
 }
 
 export interface ItineraryItem {

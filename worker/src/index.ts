@@ -93,6 +93,7 @@ app.post('/api/itineraries', async (c) => {
   return c.json({
     id: itin.id,
     destination_id: itin.destination_id,
+    destination: { id: dest.id, name: dest.name, country: dest.country, lat: dest.lat, lon: dest.lon },
     start_date: itin.start_date,
     end_date: itin.end_date,
     budget: itin.budget,
@@ -118,13 +119,18 @@ app.get('/api/itineraries/:id', async (c) => {
   const itin = await c.env.DB.prepare('SELECT * FROM itin_itineraries WHERE id = ?').bind(id).first<any>();
   if (!itin) return c.json({ detail: 'Itinerary not found' }, 404);
 
+  const dest = await c.env.DB.prepare(
+    'SELECT id, name, country, lat, lon FROM itin_destinations WHERE id = ?'
+  ).bind(itin.destination_id).first<any>();
+
   const { results: days } = await c.env.DB.prepare(
     'SELECT * FROM itin_days WHERE itinerary_id = ? ORDER BY day_number'
   ).bind(id).all<any>();
 
   const fullDays = await Promise.all(days.map(async (day: any) => {
     const { results: items } = await c.env.DB.prepare(
-      `SELECT i.*, a.name, a.category, a.description, a.price, a.rating, a.duration_minutes, a.lat, a.lon
+      `SELECT i.*, a.name, a.category, a.description, a.price, a.rating,
+              a.duration_minutes, a.lat, a.lon, a.opening_time, a.closing_time, a.website
        FROM itin_items i JOIN itin_activities a ON a.id = i.activity_id
        WHERE i.day_id = ? ORDER BY i.item_order`
     ).bind(day.id).all<any>();
@@ -147,12 +153,15 @@ app.get('/api/itineraries/:id', async (c) => {
           duration_minutes: item.duration_minutes,
           lat: item.lat,
           lon: item.lon,
+          opening_time: item.opening_time,
+          closing_time: item.closing_time,
+          website: item.website,
         },
       })),
     };
   }));
 
-  return c.json({ ...itin, days: fullDays });
+  return c.json({ ...itin, destination: dest, days: fullDays });
 });
 
 // Serve static frontend assets for all other routes
