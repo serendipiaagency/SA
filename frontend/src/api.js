@@ -18,3 +18,9 @@ export async function createItinerary(payload) {
   }
   return r.json();
 }
+
+export async function getItinerary(id) {
+  const r = await fetch(`${BASE}/${id}`);
+  if (!r.ok) throw new Error('Itinerary not found');
+  return r.json();
+}
