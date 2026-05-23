@@ -84,6 +84,13 @@ export default function HomePage({ onPickDest, onOpenTrip }) {
     return matchesSearch && matchesCountry;
   });
 
+  function surpriseMe() {
+    const pool = filteredDests.length > 0 ? filteredDests : destinations;
+    if (pool.length === 0) return;
+    const dest = pool[Math.floor(Math.random() * pool.length)];
+    onPickDest(dest);
+  }
+
   return (
     <div style={s.page}>
       <style>{`
@@ -91,6 +98,10 @@ export default function HomePage({ onPickDest, onOpenTrip }) {
           .country-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
           .trips-panel { left: auto !important; right: 0 !important; width: 280px !important; }
         }
+        .dest-card { transition: transform 0.18s ease, box-shadow 0.18s ease !important; }
+        .dest-card:hover { transform: translateY(-5px) !important; box-shadow: 0 12px 40px rgba(0,0,0,0.13) !important; }
+        .surprise-btn { transition: background 0.15s ease !important; }
+        .surprise-btn:hover { background: #0D3B2E !important; color: #fff !important; border-color: #0D3B2E !important; }
       `}</style>
 
       <nav style={s.nav}>
@@ -169,14 +180,26 @@ export default function HomePage({ onPickDest, onOpenTrip }) {
               <button style={s.searchClear} onClick={() => setSearch('')}>✕</button>
             )}
           </div>
-          <div style={s.tabs} className="country-tabs">
-            {Object.keys(COUNTRY_GROUPS).map(g => (
-              <button key={g}
-                style={{ ...s.tab, ...(countryFilter === g ? s.tabOn : {}) }}
-                onClick={() => setCountryFilter(g)}>
-                {g}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div style={s.tabs} className="country-tabs">
+              {Object.keys(COUNTRY_GROUPS).map(g => (
+                <button key={g}
+                  style={{ ...s.tab, ...(countryFilter === g ? s.tabOn : {}) }}
+                  onClick={() => setCountryFilter(g)}>
+                  {g}
+                </button>
+              ))}
+            </div>
+            {!loading && destinations.length > 0 && (
+              <button
+                className="surprise-btn"
+                style={s.surpriseBtn}
+                onClick={surpriseMe}
+                title="Elige un destino aleatorio de la selección actual"
+              >
+                🎲 Sorpréndeme
               </button>
-            ))}
+            )}
           </div>
         </div>
 
@@ -225,7 +248,7 @@ export default function HomePage({ onPickDest, onOpenTrip }) {
               : null;
             return (
               <button key={dest.id} style={{ ...s.card, animationDelay:`${i * 0.04}s` }}
-                className="fade-up" onClick={() => onPickDest(dest)}>
+                className="fade-up dest-card" onClick={() => onPickDest(dest)}>
                 <div style={{ ...s.cardBg, background: theme.gradient }}>
                   {photoUrl && (
                     <img src={photoUrl} alt={dest.name} style={s.cardPhoto}
@@ -362,6 +385,10 @@ const s = {
     background:'#FAFAF8', fontSize:13, fontWeight:600, color:'#666', flexShrink:0,
   },
   tabOn: { background:'#0D3B2E', color:'#fff', borderColor:'#0D3B2E' },
+  surpriseBtn: {
+    padding:'8px 16px', borderRadius:50, border:'1.5px solid #F59E0B',
+    background:'#FFF8E1', fontSize:13, fontWeight:700, color:'#92400E', flexShrink:0,
+  },
 
   errorText: { textAlign:'center', color:'#C53030', fontSize:15 },
   emptyState: { textAlign:'center', padding:'48px 24px' },

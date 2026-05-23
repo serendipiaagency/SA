@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ActivityCard from '../components/ActivityCard.jsx';
 import MapView from '../components/MapView.jsx';
 import FullRouteMap from '../components/FullRouteMap.jsx';
 import WeatherStrip from '../components/WeatherStrip.jsx';
+import PackingList from '../components/PackingList.jsx';
 
 const MONTHS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
@@ -41,8 +42,8 @@ const DEST_INFO = {
   'Nápoles':      { lang:'Italiano', currency:'€ Euro', tz:'CET +1', transport:'Metro · Funicular · Ferry', tip:'El UnicoNapoli integra metro, funicular y bus urbano. Ideal para varios días.' },
   'Sicilia·Palermo':{ lang:'Italiano', currency:'€ Euro', tz:'CET +1', transport:'AMAT · Coche de alquiler', tip:'Con coche puedes combinar Palermo, el Valle de los Templos y el Etna en pocos días.' },
   'Malta·Valletta':{ lang:'Maltés / Inglés', currency:'€ Euro', tz:'CET +1', transport:'Bus Malta Public Transport · Ferry', tip:'El abono de 7 días (€21) cubre todos los buses; el ferry incluye el viaje a Gozo.' },
-  'Tirana':       { lang:'Albanianés', currency:'Lek albanés / €', tz:'CET +1', transport:'Taxi · Furgon · Alquiler', tip:'La mayoría de restaurantes y hoteles aceptan euros. Lleva también algunos leks.' },
-  'Riviera Albanesa·Saranda':{ lang:'Albanianés', currency:'Lek albanés / €', tz:'CET +1', transport:'Furgon · Ferry a Corfú · Taxi', tip:'El ferry a la Isla de Ksamil dura 10 min. En verano es imprescindible reservar.' },
+  'Tirana':       { lang:'Albanés', currency:'Lek albanés / €', tz:'CET +1', transport:'Taxi · Furgon · Alquiler', tip:'La mayoría de restaurantes y hoteles aceptan euros. Lleva también algunos leks.' },
+  'Riviera Albanesa·Saranda':{ lang:'Albanés', currency:'Lek albanés / €', tz:'CET +1', transport:'Furgon · Ferry a Corfú · Taxi', tip:'El ferry a la Isla de Ksamil dura 10 min. En verano es imprescindible reservar.' },
   'Ljubljana':    { lang:'Esloveno', currency:'€ Euro', tz:'CET +1', transport:'A pie · Bicicleta · Bus Urbana', tip:'El centro es peatonal. Las bicis de Bicikelj son gratuitas los primeros 60 minutos.' },
   'Bled':         { lang:'Esloveno', currency:'€ Euro', tz:'CET +1', transport:'Bus desde Ljubljana · Coche · Bici', tip:'Alquila una barca de remos para ir a la Isla del Lago: la experiencia definitiva de Bled.' },
 };
@@ -55,23 +56,12 @@ function fmtDate(iso) {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-function shareItinerary(id) {
-  const url = `${window.location.origin}?id=${id}`;
-  if (navigator.share) {
-    navigator.share({ title: 'Mi itinerario', url });
-  } else {
-    navigator.clipboard.writeText(url).then(() => alert('¡Enlace copiado!'));
-  }
-}
-
 function exportICS(itinerary) {
   const dest = itinerary.destination?.name || 'Viaje';
   const slug = dest.toLowerCase().replace(/[^a-z0-9]/g, '-');
   const lines = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Serendipia Agency//Itinerary//ES',
-    'CALSCALE:GREGORIAN',
+    'BEGIN:VCALENDAR', 'VERSION:2.0',
+    'PRODID:-//Serendipia Agency//Itinerary//ES', 'CALSCALE:GREGORIAN',
     `X-WR-CALNAME:${dest} · Serendipia`,
   ];
   itinerary.days.forEach(day => {
@@ -83,8 +73,7 @@ function exportICS(itinerary) {
       const eh = String(Math.floor(end_time / 100)).padStart(2, '0');
       const em = String(end_time % 100).padStart(2, '0');
       const desc = activity.description
-        ? activity.description.replace(/\n/g, '\\n').replace(/[,;]/g, '\\$&')
-        : '';
+        ? activity.description.replace(/\n/g, '\\n').replace(/[,;]/g, '\\$&') : '';
       lines.push('BEGIN:VEVENT');
       lines.push(`UID:${itinerary.id}-${day.day_number}-${idx}@serendipiaagency.com`);
       lines.push(`DTSTART:${d}T${sh}${sm}00`);
@@ -107,6 +96,12 @@ function exportICS(itinerary) {
 export default function ItineraryPage({ itinerary, onReset }) {
   const [mapDays, setMapDays] = useState({});
   const [showFullRoute, setShowFullRoute] = useState(false);
+  const [collapsedDays, setCollapsedDays] = useState({});
+  const [showPacking, setShowPacking] = useState(false);
+  const [toast, setToast] = useState('');
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const toastTimer = useRef(null);
+
   const dest = itinerary.destination || {};
   const photoId = DEST_PHOTO[dest.name];
   const heroImg = photoId
@@ -114,8 +109,35 @@ export default function ItineraryPage({ itinerary, onReset }) {
     : null;
   const destInfo = DEST_INFO[dest.name] || null;
 
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 450);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  function showToastMsg(msg) {
+    setToast(msg);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(''), 2600);
+  }
+
+  function shareItinerary() {
+    const url = `${window.location.origin}?id=${itinerary.id}`;
+    if (navigator.share) {
+      navigator.share({ title: `Itinerario en ${dest.name || 'Serendipia'}`, url });
+    } else {
+      navigator.clipboard.writeText(url)
+        .then(() => showToastMsg('¡Enlace copiado al portapapeles!'))
+        .catch(() => showToastMsg('Copia este enlace: ' + url));
+    }
+  }
+
   function toggleMap(dayNum) {
     setMapDays(prev => ({ ...prev, [dayNum]: !prev[dayNum] }));
+  }
+
+  function toggleCollapse(dayNum) {
+    setCollapsedDays(prev => ({ ...prev, [dayNum]: !prev[dayNum] }));
   }
 
   const catTotals = {};
@@ -146,6 +168,8 @@ export default function ItineraryPage({ itinerary, onReset }) {
   return (
     <div style={s.page}>
       <style>{`
+        @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @media (max-width: 640px) {
           .dash-cols { grid-template-columns: 1fr !important; gap: 20px !important; }
           .itin-hero { padding: 80px 16px 36px !important; }
@@ -162,15 +186,39 @@ export default function ItineraryPage({ itinerary, onReset }) {
           .day-block { page-break-inside: avoid; margin-bottom: 20px !important; }
           .leaflet-container { display: none !important; }
         }
+        .day-hdr:hover { background: #FAFAF8 !important; }
+        .collapse-chevron { transition: transform 0.2s ease; }
       `}</style>
+
+      {toast && (
+        <div style={s.toast} className="no-print">
+          <span style={s.toastIcon}>✓</span> {toast}
+        </div>
+      )}
+
+      {showScrollTop && (
+        <button
+          className="no-print"
+          style={s.scrollTopBtn}
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          title="Volver arriba"
+        >
+          ↑
+        </button>
+      )}
+
+      {showPacking && (
+        <PackingList itinerary={itinerary} onClose={() => setShowPacking(false)} />
+      )}
 
       <nav style={s.nav} className="no-print">
         <button style={s.back} onClick={onReset}>← Nuevo plan</button>
         <span style={s.logo}>SA</span>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button style={s.printBtn} onClick={() => window.print()}>🖨️ PDF</button>
+          <button style={s.packBtn} onClick={() => setShowPacking(true)}>🧳 Equipaje</button>
           <button style={s.calBtn} onClick={() => exportICS(itinerary)}>📅 Calendario</button>
-          <button style={s.shareBtn} onClick={() => shareItinerary(itinerary.id)}>🔗 Compartir</button>
+          <button style={s.shareBtn} onClick={shareItinerary}>🔗 Compartir</button>
         </div>
       </nav>
 
@@ -294,40 +342,59 @@ export default function ItineraryPage({ itinerary, onReset }) {
         {itinerary.days.map(day => {
           const dayCost = dayTotals.find(d => d.day_number === day.day_number)?.cost || 0;
           const showMap = !!mapDays[day.day_number];
+          const isCollapsed = !!collapsedDays[day.day_number];
           return (
             <div key={day.day_number} style={s.dayBlock} className="day-block">
-              <div style={s.dayHeader}>
+              <div
+                style={s.dayHeader}
+                className="day-hdr"
+                onClick={() => toggleCollapse(day.day_number)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') toggleCollapse(day.day_number); }}
+              >
+                <span
+                  className="collapse-chevron"
+                  style={{ ...s.chevron, transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+                >
+                  ▾
+                </span>
                 <span style={s.dayNumber}>Día {day.day_number}</span>
                 <span style={s.dayDate}>{fmtDate(day.date)}</span>
                 <span style={s.dayCost}>€{dayCost.toFixed(0)}</span>
                 <span style={s.dayCount}>
                   {day.items.length} actividad{day.items.length !== 1 ? 'es' : ''}
                 </span>
-                {day.items.length > 0 && (
+                {day.items.length > 0 && !isCollapsed && (
                   <button
                     className="no-print"
                     style={{ ...s.viewToggle, ...(showMap ? s.viewToggleOn : {}) }}
-                    onClick={() => toggleMap(day.day_number)}>
+                    onClick={e => { e.stopPropagation(); toggleMap(day.day_number); }}
+                  >
                     {showMap ? '📋 Lista' : '🗺️ Mapa'}
                   </button>
                 )}
               </div>
 
-              {day.items.length === 0 ? (
-                <p style={s.empty}>Sin actividades para este día con el presupuesto restante.</p>
-              ) : showMap ? (
-                <div className="no-print">
-                  <MapView key={day.day_number} items={day.items} />
-                </div>
-              ) : (
-                day.items.map((item, idx) => (
-                  <ActivityCard
-                    key={item.activity.id}
-                    item={item}
-                    isFirst={idx === 0}
-                    prevActivity={idx > 0 ? day.items[idx - 1].activity : null}
-                  />
-                ))
+              {!isCollapsed && (
+                <>
+                  {day.items.length === 0 ? (
+                    <p style={s.empty}>Sin actividades para este día con el presupuesto restante.</p>
+                  ) : showMap ? (
+                    <div className="no-print">
+                      <MapView key={day.day_number} items={day.items} />
+                    </div>
+                  ) : (
+                    day.items.map((item, idx) => (
+                      <ActivityCard
+                        key={item.activity.id}
+                        item={item}
+                        isFirst={idx === 0}
+                        prevActivity={idx > 0 ? day.items[idx - 1].activity : null}
+                      />
+                    ))
+                  )}
+                </>
               )}
             </div>
           );
@@ -335,8 +402,9 @@ export default function ItineraryPage({ itinerary, onReset }) {
 
         <div style={s.cta} className="no-print">
           <button style={s.printCtaBtn} onClick={() => window.print()}>🖨️ Imprimir PDF</button>
+          <button style={s.packCtaBtn} onClick={() => setShowPacking(true)}>🧳 Lista de equipaje</button>
           <button style={s.calCtaBtn} onClick={() => exportICS(itinerary)}>📅 Exportar al calendario</button>
-          <button style={s.shareCtaBtn} onClick={() => shareItinerary(itinerary.id)}>🔗 Compartir</button>
+          <button style={s.shareCtaBtn} onClick={shareItinerary}>🔗 Compartir</button>
           <button style={s.ctaBtn} onClick={onReset}>Planificar nuevo viaje →</button>
         </div>
       </div>
@@ -346,6 +414,27 @@ export default function ItineraryPage({ itinerary, onReset }) {
 
 const s = {
   page: { minHeight: '100vh', background: '#FFFBF5' },
+
+  toast: {
+    position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
+    background: '#0D3B2E', color: '#fff', borderRadius: 40,
+    padding: '12px 24px', fontSize: 14, fontWeight: 700,
+    boxShadow: '0 8px 32px rgba(0,0,0,0.22)', zIndex: 500,
+    display: 'flex', alignItems: 'center', gap: 8,
+    animation: 'toastIn 0.25s ease',
+    whiteSpace: 'nowrap',
+  },
+  toastIcon: { fontSize: 16, color: '#4ADE80' },
+
+  scrollTopBtn: {
+    position: 'fixed', bottom: 28, right: 24, zIndex: 200,
+    width: 44, height: 44, borderRadius: '50%',
+    background: '#0D3B2E', color: '#fff', border: 'none',
+    fontSize: 20, fontWeight: 700, cursor: 'pointer',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+
   nav: {
     position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -361,6 +450,10 @@ const s = {
   printBtn: {
     background: '#F5F5F0', border: '1.5px solid #E0DDD8', borderRadius: 8,
     padding: '7px 12px', fontSize: 13, fontWeight: 700, color: '#555',
+  },
+  packBtn: {
+    background: '#FFF8E1', border: '1.5px solid #FCD34D', borderRadius: 8,
+    padding: '7px 12px', fontSize: 13, fontWeight: 700, color: '#92400E',
   },
   calBtn: {
     background: '#EBF4FF', border: '1.5px solid #BFD7F8', borderRadius: 8,
@@ -417,9 +510,7 @@ const s = {
     background: '#F0FDF4', border: '1.5px solid #BBF7D0', borderRadius: 16,
     padding: '16px 20px', marginBottom: 32,
   },
-  tipsRow: {
-    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 12,
-  },
+  tipsRow: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
   tipItem: { fontSize: 12, color: '#374151', display: 'flex', alignItems: 'center', gap: 4 },
   tipIcon: { fontSize: 13 },
   tipSep: { width: 1, height: 14, background: '#BBF7D0', flexShrink: 0 },
@@ -451,8 +542,11 @@ const s = {
   dayBlock: { marginBottom: 48 },
   dayHeader: {
     display: 'flex', alignItems: 'center', gap: 10,
-    marginBottom: 20, paddingBottom: 14, borderBottom: '2px solid #F0EDE8', flexWrap: 'wrap',
+    marginBottom: 20, paddingBottom: 14, borderBottom: '2px solid #F0EDE8',
+    flexWrap: 'wrap', cursor: 'pointer', borderRadius: 8, padding: '8px 4px 14px',
+    userSelect: 'none',
   },
+  chevron: { fontSize: 16, color: '#CCC', flexShrink: 0, lineHeight: 1 },
   dayNumber: { fontSize: 18, fontWeight: 800, color: '#0D3B2E' },
   dayDate: { fontSize: 13, color: '#888', background: '#F5F5F0', padding: '3px 12px', borderRadius: 20 },
   dayCost: {
@@ -473,6 +567,10 @@ const s = {
   },
   printCtaBtn: {
     background: '#F5F5F0', color: '#555', border: '1.5px solid #E0DDD8',
+    padding: '13px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700,
+  },
+  packCtaBtn: {
+    background: '#FFF8E1', color: '#92400E', border: '1.5px solid #FCD34D',
     padding: '13px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700,
   },
   calCtaBtn: {
