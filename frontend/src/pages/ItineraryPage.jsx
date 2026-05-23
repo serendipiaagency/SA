@@ -2,6 +2,7 @@ import { useState } from 'react';
 import ActivityCard from '../components/ActivityCard.jsx';
 import MapView from '../components/MapView.jsx';
 import FullRouteMap from '../components/FullRouteMap.jsx';
+import WeatherStrip from '../components/WeatherStrip.jsx';
 
 const MONTHS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
@@ -18,6 +19,32 @@ const DEST_PHOTO = {
   'Malta·Valletta':'1559494896-e634a7b4c76c', 'Tirana':'1570831978-c9b39d5db1e5',
   'Riviera Albanesa·Saranda':'1548815867-f7c0a213dd28', 'Ljubljana':'1571406384-2a4b3b23e5c6',
   'Bled':'1501854140801-50d01698950b',
+};
+
+const DEST_INFO = {
+  'Barcelona':    { lang:'Español / Catalán', currency:'€ Euro', tz:'CET +1', transport:'Metro · Bus · Bicing', tip:'La T-Casual (10 viajes, ~€11) cubre metro y bus. Cómprala en máquinas del metro.' },
+  'Lisboa':       { lang:'Portugués', currency:'€ Euro', tz:'WET +0', transport:'Metro · Tranvía · Tuk-tuk', tip:'El Viva Viagem recargable sirve para metro, tranvía y ferry. Válido en toda la red.' },
+  'Asturias':     { lang:'Español', currency:'€ Euro', tz:'CET +1', transport:'ALSA · FEVE · Coche', tip:'Alquila coche: es la única forma de llegar a los Picos de Europa y las playas ocultas.' },
+  'Madrid':       { lang:'Español', currency:'€ Euro', tz:'CET +1', transport:'Metro · EMT · Cercanías', tip:'El Abono Turístico A da viajes ilimitados en metro durante 1-7 días.' },
+  'Sevilla':      { lang:'Español', currency:'€ Euro', tz:'CET +1', transport:'Metro · Tussam · Sevici', tip:'La ciudad es plana y ciclable. Sevici (bici pública) tiene tarifa diaria de €1,33.' },
+  'Granada':      { lang:'Español', currency:'€ Euro', tz:'CET +1', transport:'Autobus · Taxi', tip:'Reserva la Alhambra online con semanas de antelación: las entradas se agotan siempre.' },
+  'Valencia':     { lang:'Español / Valenciano', currency:'€ Euro', tz:'CET +1', transport:'Metro · EMT · Valenbisi', tip:'El abono 24h (~€4) da acceso ilimitado a metro, tranvía y bus EMT.' },
+  'San Sebastián':{ lang:'Español / Euskera', currency:'€ Euro', tz:'CET +1', transport:'Dbus · Renfe Cercanías', tip:'El centro histórico y La Concha se recorren perfectamente a pie. Ciudad muy compacta.' },
+  'Toledo':       { lang:'Español', currency:'€ Euro', tz:'CET +1', transport:'ALSA · Taxi', tip:'Casco histórico 100% peatonal. Está a solo 30 min de Madrid en AVE o 1h en bus.' },
+  'Porto':        { lang:'Portugués', currency:'€ Euro', tz:'WET +0', transport:'Metro · Tranvía · Tuk-tuk', tip:'Baja a pie por la Ribeira. El tranvía histórico es bonito pero lento y caro.' },
+  'Algarve':      { lang:'Portugués', currency:'€ Euro', tz:'WET +0', transport:'EVA Bus · Coche de alquiler', tip:'Sin coche propio es difícil acceder a las mejores calas y acantilados del litoral.' },
+  'Sintra':       { lang:'Portugués', currency:'€ Euro', tz:'WET +0', transport:'Tren desde Lisboa · Bus 434', tip:'Llega antes de las 9h. Las colas a los palacios se disparan a partir de las 10h.' },
+  'Roma':         { lang:'Italiano', currency:'€ Euro', tz:'CET +1', transport:'Metro A y B · Bus · Tram', tip:'El Rome Pass (48/72h) incluye museos y transporte. Reserva el Coliseo con antelación.' },
+  'Florencia':    { lang:'Italiano', currency:'€ Euro', tz:'CET +1', transport:'ATAF · A pie', tip:'Los Uffizi requieren reserva previa; sin ella las colas superan las 2-3 horas fácilmente.' },
+  'Venecia':      { lang:'Italiano', currency:'€ Euro', tz:'CET +1', transport:'Vaporetto · A pie', tip:'El Vaporetto pass de 24h (~€25) es la forma más eficiente de moverse por los canales.' },
+  'Milán':        { lang:'Italiano', currency:'€ Euro', tz:'CET +1', transport:'Metro · Tranvía · ATM', tip:'El abono urbano de 24h (~€7) incluye metro, tranvía y autobús ATM.' },
+  'Nápoles':      { lang:'Italiano', currency:'€ Euro', tz:'CET +1', transport:'Metro · Funicular · Ferry', tip:'El UnicoNapoli integra metro, funicular y bus urbano. Ideal para varios días.' },
+  'Sicilia·Palermo':{ lang:'Italiano', currency:'€ Euro', tz:'CET +1', transport:'AMAT · Coche de alquiler', tip:'Con coche puedes combinar Palermo, el Valle de los Templos y el Etna en pocos días.' },
+  'Malta·Valletta':{ lang:'Maltés / Inglés', currency:'€ Euro', tz:'CET +1', transport:'Bus Malta Public Transport · Ferry', tip:'El abono de 7 días (€21) cubre todos los buses; el ferry incluye el viaje a Gozo.' },
+  'Tirana':       { lang:'Albanianés', currency:'Lek albanés / €', tz:'CET +1', transport:'Taxi · Furgon · Alquiler', tip:'La mayoría de restaurantes y hoteles aceptan euros. Lleva también algunos leks.' },
+  'Riviera Albanesa·Saranda':{ lang:'Albanianés', currency:'Lek albanés / €', tz:'CET +1', transport:'Furgon · Ferry a Corfú · Taxi', tip:'El ferry a la Isla de Ksamil dura 10 min. En verano es imprescindible reservar.' },
+  'Ljubljana':    { lang:'Esloveno', currency:'€ Euro', tz:'CET +1', transport:'A pie · Bicicleta · Bus Urbana', tip:'El centro es peatonal. Las bicis de Bicikelj son gratuitas los primeros 60 minutos.' },
+  'Bled':         { lang:'Esloveno', currency:'€ Euro', tz:'CET +1', transport:'Bus desde Ljubljana · Coche · Bici', tip:'Alquila una barca de remos para ir a la Isla del Lago: la experiencia definitiva de Bled.' },
 };
 
 const CAT_LABEL = { culture:'Cultura', food:'Gastronomía', nature:'Naturaleza', adventure:'Aventura', shopping:'Compras' };
@@ -37,6 +64,46 @@ function shareItinerary(id) {
   }
 }
 
+function exportICS(itinerary) {
+  const dest = itinerary.destination?.name || 'Viaje';
+  const slug = dest.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Serendipia Agency//Itinerary//ES',
+    'CALSCALE:GREGORIAN',
+    `X-WR-CALNAME:${dest} · Serendipia`,
+  ];
+  itinerary.days.forEach(day => {
+    day.items.forEach((item, idx) => {
+      const { activity, start_time, end_time } = item;
+      const d = day.date.replace(/-/g, '');
+      const sh = String(Math.floor(start_time / 100)).padStart(2, '0');
+      const sm = String(start_time % 100).padStart(2, '0');
+      const eh = String(Math.floor(end_time / 100)).padStart(2, '0');
+      const em = String(end_time % 100).padStart(2, '0');
+      const desc = activity.description
+        ? activity.description.replace(/\n/g, '\\n').replace(/[,;]/g, '\\$&')
+        : '';
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${itinerary.id}-${day.day_number}-${idx}@serendipiaagency.com`);
+      lines.push(`DTSTART:${d}T${sh}${sm}00`);
+      lines.push(`DTEND:${d}T${eh}${em}00`);
+      lines.push(`SUMMARY:${activity.name}`);
+      if (desc) lines.push(`DESCRIPTION:${desc}`);
+      if (activity.lat && activity.lon) lines.push(`GEO:${activity.lat};${activity.lon}`);
+      lines.push('END:VEVENT');
+    });
+  });
+  lines.push('END:VCALENDAR');
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `serendipia-${slug}.ics`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
 export default function ItineraryPage({ itinerary, onReset }) {
   const [mapDays, setMapDays] = useState({});
   const [showFullRoute, setShowFullRoute] = useState(false);
@@ -45,12 +112,12 @@ export default function ItineraryPage({ itinerary, onReset }) {
   const heroImg = photoId
     ? `https://images.unsplash.com/photo-${photoId}?w=1400&auto=format&fit=crop&q=80`
     : null;
+  const destInfo = DEST_INFO[dest.name] || null;
 
   function toggleMap(dayNum) {
     setMapDays(prev => ({ ...prev, [dayNum]: !prev[dayNum] }));
   }
 
-  // Budget calculations
   const catTotals = {};
   const dayTotals = itinerary.days.map(day => {
     let dayCost = 0;
@@ -63,13 +130,13 @@ export default function ItineraryPage({ itinerary, onReset }) {
     return { day_number: day.day_number, cost: dayCost };
   });
 
-  const totalActivities = itinerary.days.reduce((s, d) => s + d.items.length, 0);
   const allItems = itinerary.days.flatMap(d => d.items);
   const freeCount = allItems.filter(i => i.activity.price === 0).length;
   const paidCount = allItems.filter(i => i.activity.price > 0).length;
   const avgRating = allItems.length > 0
     ? allItems.reduce((s, i) => s + (i.activity.rating || 0), 0) / allItems.length : 0;
   const totalDurH = Math.round(allItems.reduce((s, i) => s + (i.activity.duration_minutes || 0), 0) / 60);
+  const totalActivities = allItems.length;
   const days = itinerary.days.length;
   const budgetUsed = itinerary.total_cost;
   const budgetPct = Math.min(100, (budgetUsed / itinerary.budget) * 100);
@@ -89,11 +156,7 @@ export default function ItineraryPage({ itinerary, onReset }) {
         @media print {
           .no-print { display: none !important; }
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .itin-hero {
-            position: static !important;
-            padding: 32px 24px 28px !important;
-            min-height: auto !important;
-          }
+          .itin-hero { position: static !important; padding: 32px 24px 28px !important; min-height: auto !important; }
           .itin-body { padding: 24px !important; }
           .itin-dashboard { box-shadow: none !important; }
           .day-block { page-break-inside: avoid; margin-bottom: 20px !important; }
@@ -104,15 +167,13 @@ export default function ItineraryPage({ itinerary, onReset }) {
       <nav style={s.nav} className="no-print">
         <button style={s.back} onClick={onReset}>← Nuevo plan</button>
         <span style={s.logo}>SA</span>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button style={s.printBtn} onClick={() => window.print()}>🖨️ PDF</button>
-          <button style={s.shareBtn} onClick={() => shareItinerary(itinerary.id)}>
-            🔗 Compartir
-          </button>
+          <button style={s.calBtn} onClick={() => exportICS(itinerary)}>📅 Calendario</button>
+          <button style={s.shareBtn} onClick={() => shareItinerary(itinerary.id)}>🔗 Compartir</button>
         </div>
       </nav>
 
-      {/* Hero */}
       <div style={s.heroStrip} className="itin-hero">
         {heroImg && (
           <img src={heroImg} alt={dest.name} style={s.heroBg}
@@ -136,7 +197,6 @@ export default function ItineraryPage({ itinerary, onReset }) {
       </div>
 
       <div style={s.body} className="itin-body">
-        {/* Budget dashboard */}
         <div style={s.dashboard} className="itin-dashboard">
           <h2 style={s.dashTitle}>Resumen de presupuesto</h2>
           <div style={s.totalSection}>
@@ -179,7 +239,24 @@ export default function ItineraryPage({ itinerary, onReset }) {
           </div>
         </div>
 
-        {/* Stats bar */}
+        {destInfo && (
+          <div style={s.tipsCard}>
+            <div style={s.tipsRow}>
+              <span style={s.tipItem}><span style={s.tipIcon}>🌍</span> {destInfo.lang}</span>
+              <span style={s.tipSep} />
+              <span style={s.tipItem}><span style={s.tipIcon}>💶</span> {destInfo.currency}</span>
+              <span style={s.tipSep} />
+              <span style={s.tipItem}><span style={s.tipIcon}>🕐</span> {destInfo.tz}</span>
+              <span style={s.tipSep} />
+              <span style={s.tipItem}><span style={s.tipIcon}>🚌</span> {destInfo.transport}</span>
+            </div>
+            <div style={s.tipHighlight}>
+              <span style={s.tipBulb}>💡</span>
+              <span style={s.tipText}>{destInfo.tip}</span>
+            </div>
+          </div>
+        )}
+
         <div style={s.statsBar} className="no-print">
           <div style={s.statItem}>
             <span style={s.statNum}>★ {avgRating.toFixed(1)}</span>
@@ -209,7 +286,11 @@ export default function ItineraryPage({ itinerary, onReset }) {
           <FullRouteMap days={itinerary.days} onClose={() => setShowFullRoute(false)} />
         )}
 
-        {/* Day blocks */}
+        <WeatherStrip
+          lat={dest.lat} lon={dest.lon}
+          startDate={itinerary.start_date} endDate={itinerary.end_date}
+        />
+
         {itinerary.days.map(day => {
           const dayCost = dayTotals.find(d => d.day_number === day.day_number)?.cost || 0;
           const showMap = !!mapDays[day.day_number];
@@ -254,9 +335,8 @@ export default function ItineraryPage({ itinerary, onReset }) {
 
         <div style={s.cta} className="no-print">
           <button style={s.printCtaBtn} onClick={() => window.print()}>🖨️ Imprimir PDF</button>
-          <button style={s.shareCtaBtn} onClick={() => shareItinerary(itinerary.id)}>
-            🔗 Compartir itinerario
-          </button>
+          <button style={s.calCtaBtn} onClick={() => exportICS(itinerary)}>📅 Exportar al calendario</button>
+          <button style={s.shareCtaBtn} onClick={() => shareItinerary(itinerary.id)}>🔗 Compartir</button>
           <button style={s.ctaBtn} onClick={onReset}>Planificar nuevo viaje →</button>
         </div>
       </div>
@@ -281,6 +361,10 @@ const s = {
   printBtn: {
     background: '#F5F5F0', border: '1.5px solid #E0DDD8', borderRadius: 8,
     padding: '7px 12px', fontSize: 13, fontWeight: 700, color: '#555',
+  },
+  calBtn: {
+    background: '#EBF4FF', border: '1.5px solid #BFD7F8', borderRadius: 8,
+    padding: '7px 12px', fontSize: 13, fontWeight: 700, color: '#1565C0',
   },
   shareBtn: {
     background: '#F59E0B', border: 'none', borderRadius: 8,
@@ -310,7 +394,7 @@ const s = {
 
   dashboard: {
     background: '#fff', borderRadius: 20, padding: '28px 32px',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.07)', marginBottom: 48,
+    boxShadow: '0 4px 24px rgba(0,0,0,0.07)', marginBottom: 24,
     border: '1.5px solid #F0EDE8',
   },
   dashTitle: { fontSize: 17, fontWeight: 800, color: '#0D3B2E', marginBottom: 20 },
@@ -328,6 +412,41 @@ const s = {
   miniTrack: { flex: 1, height: 6, background: '#F5F5F0', borderRadius: 99, overflow: 'hidden' },
   miniFill: { height: '100%', borderRadius: 99 },
   miniAmt: { fontSize: 12, fontWeight: 700, color: '#1A1A1A', minWidth: 34, textAlign: 'right' },
+
+  tipsCard: {
+    background: '#F0FDF4', border: '1.5px solid #BBF7D0', borderRadius: 16,
+    padding: '16px 20px', marginBottom: 32,
+  },
+  tipsRow: {
+    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 12,
+  },
+  tipItem: { fontSize: 12, color: '#374151', display: 'flex', alignItems: 'center', gap: 4 },
+  tipIcon: { fontSize: 13 },
+  tipSep: { width: 1, height: 14, background: '#BBF7D0', flexShrink: 0 },
+  tipHighlight: {
+    display: 'flex', alignItems: 'flex-start', gap: 8,
+    background: 'rgba(255,255,255,0.65)', borderRadius: 10, padding: '10px 14px',
+  },
+  tipBulb: { fontSize: 16, flexShrink: 0 },
+  tipText: { fontSize: 13, color: '#065F46', lineHeight: 1.5, fontWeight: 500 },
+
+  statsBar: {
+    display: 'flex', alignItems: 'center', background: '#fff',
+    borderRadius: 16, marginBottom: 40, border: '1.5px solid #F0EDE8',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.05)', overflow: 'hidden', flexWrap: 'wrap',
+  },
+  statItem: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    padding: '16px 20px', flex: '1 1 auto',
+  },
+  statNum: { fontSize: 20, fontWeight: 800, color: '#0D3B2E' },
+  statLbl: { fontSize: 10, color: '#999', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
+  statSep: { width: 1, height: 40, background: '#F0EDE8', flexShrink: 0 },
+  routeBtn: {
+    background: '#0D3B2E', color: '#fff', border: 'none',
+    padding: '12px 18px', fontSize: 13, fontWeight: 700,
+    margin: 10, borderRadius: 12, flexShrink: 0,
+  },
 
   dayBlock: { marginBottom: 48 },
   dayHeader: {
@@ -348,38 +467,24 @@ const s = {
   viewToggleOn: { background: '#0D3B2E', color: '#fff', borderColor: '#0D3B2E' },
   empty: { color: '#AAA', fontStyle: 'italic', padding: '16px 0' },
 
-  statsBar: {
-    display:'flex', alignItems:'center', background:'#fff',
-    borderRadius:16, marginBottom:40, border:'1.5px solid #F0EDE8',
-    boxShadow:'0 2px 12px rgba(0,0,0,0.05)', overflow:'hidden', flexWrap:'wrap',
-  },
-  statItem: {
-    display:'flex', flexDirection:'column', alignItems:'center',
-    padding:'16px 20px', flex:'1 1 auto',
-  },
-  statNum: { fontSize:20, fontWeight:800, color:'#0D3B2E' },
-  statLbl: { fontSize:10, color:'#999', fontWeight:700, textTransform:'uppercase', letterSpacing:0.5, marginTop:2 },
-  statSep: { width:1, height:40, background:'#F0EDE8', flexShrink:0 },
-  routeBtn: {
-    background:'#0D3B2E', color:'#fff', border:'none',
-    padding:'12px 18px', fontSize:13, fontWeight:700,
-    margin:10, borderRadius:12, flexShrink:0,
-  },
-
   cta: {
     textAlign: 'center', padding: '48px 0 0', borderTop: '1px solid #EEE',
-    display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap',
+    display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap',
   },
   printCtaBtn: {
     background: '#F5F5F0', color: '#555', border: '1.5px solid #E0DDD8',
-    padding: '14px 24px', borderRadius: 12, fontSize: 15, fontWeight: 700,
+    padding: '13px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700,
+  },
+  calCtaBtn: {
+    background: '#EBF4FF', color: '#1565C0', border: '1.5px solid #BFD7F8',
+    padding: '13px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700,
   },
   shareCtaBtn: {
     background: '#F59E0B', color: '#1A1A1A', border: 'none',
-    padding: '14px 28px', borderRadius: 12, fontSize: 15, fontWeight: 700,
+    padding: '13px 24px', borderRadius: 12, fontSize: 14, fontWeight: 700,
   },
   ctaBtn: {
     background: '#0D3B2E', color: '#fff', border: 'none',
-    padding: '14px 28px', borderRadius: 12, fontSize: 15, fontWeight: 700,
+    padding: '13px 24px', borderRadius: 12, fontSize: 14, fontWeight: 700,
   },
 };

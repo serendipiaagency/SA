@@ -155,7 +155,6 @@ export default function HomePage({ onPickDest, onOpenTrip }) {
           <p style={s.sectionSub}>Cada destino incluye actividades curadas y verificadas</p>
         </div>
 
-        {/* Search + filter bar */}
         <div style={s.filterBar}>
           <div style={s.searchWrap}>
             <span style={s.searchIcon}>🔍</span>
@@ -181,7 +180,30 @@ export default function HomePage({ onPickDest, onOpenTrip }) {
           </div>
         </div>
 
-        {loading && <p style={s.loadingText}>Cargando destinos…</p>}
+        {loading && (
+          <>
+            <style>{`
+              @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+              .sk { background:linear-gradient(90deg,#F5F5F0 25%,#EBEBEA 50%,#F5F5F0 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; }
+            `}</style>
+            <div style={s.grid}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} style={{ background:'#fff', borderRadius:20, overflow:'hidden', border:'1.5px solid #F0EDE8', boxShadow:'0 4px 24px rgba(0,0,0,0.06)' }}>
+                  <div className="sk" style={{ height: 200 }} />
+                  <div style={{ padding:'18px 22px 22px', display:'flex', flexDirection:'column', gap:10 }}>
+                    <div className="sk" style={{ height:20, borderRadius:6, width:'55%' }} />
+                    <div className="sk" style={{ height:13, borderRadius:6, width:'90%' }} />
+                    <div className="sk" style={{ height:13, borderRadius:6, width:'75%' }} />
+                    <div style={{ display:'flex', gap:6, marginTop:4 }}>
+                      <div className="sk" style={{ height:24, borderRadius:20, width:60 }} />
+                      <div className="sk" style={{ height:24, borderRadius:20, width:72 }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
         {error && <p style={s.errorText}>{error}</p>}
 
         {!loading && filteredDests.length === 0 && (
@@ -341,7 +363,6 @@ const s = {
   },
   tabOn: { background:'#0D3B2E', color:'#fff', borderColor:'#0D3B2E' },
 
-  loadingText: { textAlign:'center', color:'#888', fontSize:16, padding:48 },
   errorText: { textAlign:'center', color:'#C53030', fontSize:15 },
   emptyState: { textAlign:'center', padding:'48px 24px' },
   clearBtn: {

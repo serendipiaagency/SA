@@ -1,6 +1,25 @@
 import { useState, useEffect } from 'react';
 import { createItinerary } from '../api.js';
 
+const BUDGET_PRESETS = [
+  { label: '💰 Eco', value: 100, hint: 'Hostal + actividades gratis' },
+  { label: '⚖️ Estándar', value: 300, hint: 'Hotel + mix de experiencias' },
+  { label: '✨ Premium', value: 700, hint: 'Hotel 4★ + experiencias únicas' },
+];
+
+const DURATION_PRESETS = [
+  { label: 'Fin de semana', days: 2 },
+  { label: '4 días', days: 4 },
+  { label: '1 semana', days: 7 },
+  { label: '2 semanas', days: 14 },
+];
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n - 1);
+  return d.toISOString().split('T')[0];
+}
+
 const LOADING_STEPS = [
   '🗺️ Analizando destino…',
   '⭐ Seleccionando las mejores actividades…',
@@ -109,7 +128,6 @@ export default function PlannerPage({ destination, onResult, onBack }) {
       </nav>
 
       <div style={s.content} className="planner-grid">
-        {/* Left: destination hero */}
         <div
           className="planner-left"
           style={{
@@ -150,7 +168,6 @@ export default function PlannerPage({ destination, onResult, onBack }) {
           </div>
         </div>
 
-        {/* Right: form */}
         <form style={s.form} className="planner-form" onSubmit={handleSubmit}>
           <div style={s.fieldGroup}>
             <label style={s.label}>¿Cuándo viajas?</label>
@@ -166,6 +183,15 @@ export default function PlannerPage({ destination, onResult, onBack }) {
                 <input type="date" style={s.input} value={form.end_date} min={form.start_date}
                   onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} />
               </div>
+            </div>
+            <div style={s.durationRow}>
+              {DURATION_PRESETS.map(({ label, days: d }) => (
+                <button key={label} type="button"
+                  style={s.durationBtn}
+                  onClick={() => setForm(f => ({ ...f, end_date: addDays(f.start_date, d) }))}>
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -190,6 +216,16 @@ export default function PlannerPage({ destination, onResult, onBack }) {
                 <span style={s.budgetTotal}>&nbsp;· €{totalBudget} total</span>
               )}
             </label>
+            <div style={s.presetRow}>
+              {BUDGET_PRESETS.map(({ label, value, hint }) => (
+                <button key={value} type="button"
+                  style={{ ...s.presetBtn, ...(form.budget === value ? s.presetBtnOn : {}) }}
+                  onClick={() => setForm(f => ({ ...f, budget: value }))}
+                  title={hint}>
+                  {label}
+                </button>
+              ))}
+            </div>
             <input type="range" min={50} max={1000} step={25} value={form.budget}
               style={s.range}
               onChange={e => setForm(f => ({ ...f, budget: Number(e.target.value) }))} />
@@ -220,7 +256,6 @@ export default function PlannerPage({ destination, onResult, onBack }) {
         </form>
       </div>
 
-      {/* Full-screen loading overlay */}
       {loading && (
         <div style={s.overlay}>
           {heroImg && (
@@ -312,6 +347,17 @@ const s = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   travBtnOn: { background: '#0D3B2E', color: '#fff', borderColor: '#0D3B2E' },
+  durationRow: { display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 },
+  durationBtn: {
+    padding: '5px 12px', borderRadius: 20, border: '1.5px solid #E8E5E0',
+    background: '#FAFAF8', fontSize: 12, fontWeight: 600, color: '#666', flexShrink: 0,
+  },
+  presetRow: { display: 'flex', gap: 8, marginBottom: 12 },
+  presetBtn: {
+    flex: 1, padding: '9px 0', borderRadius: 10, border: '1.5px solid #E8E5E0',
+    background: '#FAFAF8', fontSize: 13, fontWeight: 700, color: '#555',
+  },
+  presetBtnOn: { background: '#0D3B2E', color: '#fff', borderColor: '#0D3B2E' },
   range: { width: '100%', accentColor: '#0D3B2E' },
   rangeLabels: { display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#999', marginTop: 6 },
   chips: { display: 'flex', flexWrap: 'wrap', gap: 10 },
