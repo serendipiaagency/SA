@@ -1,4 +1,4 @@
-const CATEGORY_EMOJI = { culture:'🏛', food:'🍽', nature:'🌿', adventure:'🧗', shopping:'🛍' };
+const CATEGORY_EMOJI = { culture:'🏙', food:'🍽', nature:'🌿', adventure:'🧗', shopping:'🛍' };
 const CATEGORY_LABEL = { culture:'Cultura', food:'Gastronomía', nature:'Naturaleza', adventure:'Aventura', shopping:'Compras' };
 const CATEGORY_BG    = { culture:'#EBF4FF', food:'#FFF8E1', nature:'#F0FDF4', adventure:'#FFF3E0', shopping:'#FCE4EC' };
 const CATEGORY_FG    = { culture:'#1565C0', food:'#E65100', nature:'#2E7D32', adventure:'#BF360C', shopping:'#880E4F' };
