@@ -7,13 +7,24 @@ export interface Env {
   ASSETS: Fetcher;
 }
 
+const ADMIN_KEY = 'sa-admin-serendipia';
+
 const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', cors({ origin: '*' }));
 
+// Admin auth middleware
+app.use('/api/admin/*', async (c, next) => {
+  if (c.req.header('X-Admin-Key') !== ADMIN_KEY) {
+    return c.json({ detail: 'Unauthorized' }, 401);
+  }
+  await next();
+});
+
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
-// GET /api/itineraries/destinations
+// ── Public routes ───────────────────────────────────────────────────────────
+
 app.get('/api/itineraries/destinations', async (c) => {
   const { results } = await c.env.DB.prepare(
     'SELECT id, name, country FROM itin_destinations ORDER BY name'
@@ -21,52 +32,34 @@ app.get('/api/itineraries/destinations', async (c) => {
   return c.json(results);
 });
 
-// POST /api/itineraries
 app.post('/api/itineraries', async (c) => {
   let body: any;
-  try {
-    body = await c.req.json();
-  } catch {
-    return c.json({ detail: 'Invalid JSON' }, 400);
-  }
+  try { body = await c.req.json(); } catch { return c.json({ detail: 'Invalid JSON' }, 400); }
 
   const { destination_id, start_date, end_date, budget, interests } = body;
-
-  if (!destination_id || !start_date || !end_date || !budget || !interests?.length) {
+  if (!destination_id || !start_date || !end_date || !budget || !interests?.length)
     return c.json({ detail: 'Missing required fields' }, 422);
-  }
 
   const validInterests = new Set(['culture', 'food', 'nature', 'adventure', 'shopping']);
-  for (const i of interests) {
+  for (const i of interests)
     if (!validInterests.has(i)) return c.json({ detail: `Invalid interest: ${i}` }, 422);
-  }
 
-  if (end_date < start_date) {
-    return c.json({ detail: 'end_date must be >= start_date' }, 422);
-  }
-  if (budget <= 0) {
-    return c.json({ detail: 'budget must be positive' }, 422);
-  }
+  if (end_date < start_date) return c.json({ detail: 'end_date must be >= start_date' }, 422);
+  if (budget <= 0) return c.json({ detail: 'budget must be positive' }, 422);
 
-  const dest = await c.env.DB.prepare(
-    'SELECT * FROM itin_destinations WHERE id = ?'
-  ).bind(destination_id).first<{ id: number; name: string; country: string; lat: number; lon: number }>();
-
+  const dest = await c.env.DB.prepare('SELECT * FROM itin_destinations WHERE id = ?')
+    .bind(destination_id).first<{ id: number; name: string; country: string; lat: number; lon: number }>();
   if (!dest) return c.json({ detail: 'Destination not found' }, 404);
 
   const placeholders = interests.map(() => '?').join(',');
   const { results: activities } = await c.env.DB.prepare(
     `SELECT * FROM itin_activities WHERE destination_id = ? AND category IN (${placeholders}) ORDER BY rating DESC`
   ).bind(destination_id, ...interests).all<Activity>();
-
-  if (!activities.length) {
-    return c.json({ detail: 'No activities found for selected interests' }, 422);
-  }
+  if (!activities.length) return c.json({ detail: 'No activities found for selected interests' }, 422);
 
   const dates = dateRange(start_date, end_date);
   const { days, totalCost } = buildDays(activities, dest.lat, dest.lon, dates, budget);
 
-  // Persist itinerary
   const itin = await c.env.DB.prepare(
     `INSERT INTO itin_itineraries (destination_id, start_date, end_date, budget, interests, total_cost)
      VALUES (?, ?, ?, ?, ?, ?) RETURNING *`
@@ -77,7 +70,6 @@ app.post('/api/itineraries', async (c) => {
     const savedDay = await c.env.DB.prepare(
       `INSERT INTO itin_days (itinerary_id, day_number, date) VALUES (?, ?, ?) RETURNING *`
     ).bind(itin.id, day.day_number, day.date).first<any>();
-
     const savedItems = [];
     for (const item of day.items) {
       await c.env.DB.prepare(
@@ -86,43 +78,31 @@ app.post('/api/itineraries', async (c) => {
       ).bind(savedDay.id, item.activity.id, item.order, item.start_time, item.end_time, item.travel_minutes_from_prev).run();
       savedItems.push(item);
     }
-
     savedDays.push({ ...savedDay, items: savedItems });
   }
 
   return c.json({
-    id: itin.id,
-    destination_id: itin.destination_id,
+    id: itin.id, destination_id: itin.destination_id,
     destination: { id: dest.id, name: dest.name, country: dest.country, lat: dest.lat, lon: dest.lon },
-    start_date: itin.start_date,
-    end_date: itin.end_date,
-    budget: itin.budget,
-    interests: itin.interests,
-    total_cost: itin.total_cost,
+    start_date: itin.start_date, end_date: itin.end_date, budget: itin.budget,
+    interests: itin.interests, total_cost: itin.total_cost,
     days: savedDays.map((d) => ({
-      day_number: d.day_number,
-      date: d.date,
+      day_number: d.day_number, date: d.date,
       items: d.items.map((item: any) => ({
-        order: item.order,
-        start_time: item.start_time,
-        end_time: item.end_time,
-        travel_minutes_from_prev: item.travel_minutes_from_prev,
-        activity: item.activity,
+        order: item.order, start_time: item.start_time, end_time: item.end_time,
+        travel_minutes_from_prev: item.travel_minutes_from_prev, activity: item.activity,
       })),
     })),
   }, 201);
 });
 
-// GET /api/itineraries/:id
 app.get('/api/itineraries/:id', async (c) => {
   const id = Number(c.req.param('id'));
   const itin = await c.env.DB.prepare('SELECT * FROM itin_itineraries WHERE id = ?').bind(id).first<any>();
   if (!itin) return c.json({ detail: 'Itinerary not found' }, 404);
 
-  const dest = await c.env.DB.prepare(
-    'SELECT id, name, country, lat, lon FROM itin_destinations WHERE id = ?'
-  ).bind(itin.destination_id).first<any>();
-
+  const dest = await c.env.DB.prepare('SELECT id, name, country, lat, lon FROM itin_destinations WHERE id = ?')
+    .bind(itin.destination_id).first<any>();
   const { results: days } = await c.env.DB.prepare(
     'SELECT * FROM itin_days WHERE itinerary_id = ? ORDER BY day_number'
   ).bind(id).all<any>();
@@ -134,28 +114,16 @@ app.get('/api/itineraries/:id', async (c) => {
        FROM itin_items i JOIN itin_activities a ON a.id = i.activity_id
        WHERE i.day_id = ? ORDER BY i.item_order`
     ).bind(day.id).all<any>();
-
     return {
-      day_number: day.day_number,
-      date: day.date,
+      day_number: day.day_number, date: day.date,
       items: items.map((item: any) => ({
-        order: item.item_order,
-        start_time: item.start_time,
-        end_time: item.end_time,
+        order: item.item_order, start_time: item.start_time, end_time: item.end_time,
         travel_minutes_from_prev: item.travel_minutes_from_prev,
         activity: {
-          id: item.activity_id,
-          name: item.name,
-          category: item.category,
-          description: item.description,
-          price: item.price,
-          rating: item.rating,
-          duration_minutes: item.duration_minutes,
-          lat: item.lat,
-          lon: item.lon,
-          opening_time: item.opening_time,
-          closing_time: item.closing_time,
-          website: item.website,
+          id: item.activity_id, name: item.name, category: item.category,
+          description: item.description, price: item.price, rating: item.rating,
+          duration_minutes: item.duration_minutes, lat: item.lat, lon: item.lon,
+          opening_time: item.opening_time, closing_time: item.closing_time, website: item.website,
         },
       })),
     };
@@ -164,7 +132,165 @@ app.get('/api/itineraries/:id', async (c) => {
   return c.json({ ...itin, destination: dest, days: fullDays });
 });
 
-// Serve static frontend assets for all other routes
+// ── Admin: Stats ────────────────────────────────────────────────────────────
+
+app.get('/api/admin/stats', async (c) => {
+  const [itinsR, destsR, activsR, revR] = await Promise.all([
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM itin_itineraries').first<{ count: number }>(),
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM itin_destinations').first<{ count: number }>(),
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM itin_activities').first<{ count: number }>(),
+    c.env.DB.prepare('SELECT SUM(total_cost) as total FROM itin_itineraries').first<{ total: number }>(),
+  ]);
+
+  const { results: topDests } = await c.env.DB.prepare(`
+    SELECT d.name, COUNT(i.id) as count
+    FROM itin_destinations d LEFT JOIN itin_itineraries i ON i.destination_id = d.id
+    GROUP BY d.id, d.name ORDER BY count DESC LIMIT 5
+  `).all();
+
+  const { results: recent } = await c.env.DB.prepare(`
+    SELECT i.*, d.name as dest_name, d.country
+    FROM itin_itineraries i JOIN itin_destinations d ON d.id = i.destination_id
+    ORDER BY i.id DESC LIMIT 10
+  `).all();
+
+  return c.json({
+    itineraries: itinsR?.count ?? 0,
+    destinations: destsR?.count ?? 0,
+    activities: activsR?.count ?? 0,
+    totalRevenue: revR?.total ?? 0,
+    topDestinations: topDests,
+    recentItineraries: recent,
+  });
+});
+
+// ── Admin: Destinations CRUD ────────────────────────────────────────────────
+
+app.get('/api/admin/destinations', async (c) => {
+  const { results } = await c.env.DB.prepare(`
+    SELECT d.*, COUNT(a.id) as activity_count
+    FROM itin_destinations d LEFT JOIN itin_activities a ON a.destination_id = d.id
+    GROUP BY d.id ORDER BY d.name
+  `).all();
+  return c.json(results);
+});
+
+app.post('/api/admin/destinations', async (c) => {
+  const body = await c.req.json<any>();
+  const { name, country, lat, lon } = body;
+  if (!name || !country || lat == null || lon == null)
+    return c.json({ detail: 'Missing required fields: name, country, lat, lon' }, 422);
+  const dest = await c.env.DB.prepare(
+    'INSERT INTO itin_destinations (name, country, lat, lon) VALUES (?, ?, ?, ?) RETURNING *'
+  ).bind(name, country, Number(lat), Number(lon)).first();
+  return c.json(dest, 201);
+});
+
+app.put('/api/admin/destinations/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  const { name, country, lat, lon } = await c.req.json<any>();
+  const dest = await c.env.DB.prepare(
+    'UPDATE itin_destinations SET name=?, country=?, lat=?, lon=? WHERE id=? RETURNING *'
+  ).bind(name, country, Number(lat), Number(lon), id).first();
+  if (!dest) return c.json({ detail: 'Not found' }, 404);
+  return c.json(dest);
+});
+
+app.delete('/api/admin/destinations/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  await c.env.DB.prepare('DELETE FROM itin_activities WHERE destination_id=?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM itin_destinations WHERE id=?').bind(id).run();
+  return c.json({ ok: true });
+});
+
+// ── Admin: Activities CRUD ──────────────────────────────────────────────────
+
+app.get('/api/admin/activities', async (c) => {
+  const destId = c.req.query('destination_id');
+  if (destId) {
+    const { results } = await c.env.DB.prepare(`
+      SELECT a.*, d.name as dest_name FROM itin_activities a
+      JOIN itin_destinations d ON d.id = a.destination_id
+      WHERE a.destination_id = ? ORDER BY a.name
+    `).bind(Number(destId)).all();
+    return c.json(results);
+  }
+  const { results } = await c.env.DB.prepare(`
+    SELECT a.*, d.name as dest_name FROM itin_activities a
+    JOIN itin_destinations d ON d.id = a.destination_id
+    ORDER BY d.name, a.name
+  `).all();
+  return c.json(results);
+});
+
+app.post('/api/admin/activities', async (c) => {
+  const b = await c.req.json<any>();
+  if (!b.destination_id || !b.name || !b.category || b.lat == null || b.lon == null)
+    return c.json({ detail: 'Missing required fields' }, 422);
+  const act = await c.env.DB.prepare(`
+    INSERT INTO itin_activities
+      (destination_id, name, category, lat, lon, opening_time, closing_time, duration_minutes, price, rating, description, website)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *
+  `).bind(
+    Number(b.destination_id), b.name, b.category,
+    Number(b.lat), Number(b.lon),
+    Number(b.opening_time ?? 900), Number(b.closing_time ?? 2100),
+    Number(b.duration_minutes ?? 60), Number(b.price ?? 0),
+    Number(b.rating ?? 4.0), b.description ?? '', b.website ?? '',
+  ).first();
+  return c.json(act, 201);
+});
+
+app.put('/api/admin/activities/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  const b = await c.req.json<any>();
+  const act = await c.env.DB.prepare(`
+    UPDATE itin_activities SET
+      destination_id=?, name=?, category=?, lat=?, lon=?,
+      opening_time=?, closing_time=?, duration_minutes=?, price=?, rating=?, description=?, website=?
+    WHERE id=? RETURNING *
+  `).bind(
+    Number(b.destination_id), b.name, b.category,
+    Number(b.lat), Number(b.lon),
+    Number(b.opening_time), Number(b.closing_time),
+    Number(b.duration_minutes), Number(b.price),
+    Number(b.rating), b.description ?? '', b.website ?? '', id,
+  ).first();
+  if (!act) return c.json({ detail: 'Not found' }, 404);
+  return c.json(act);
+});
+
+app.delete('/api/admin/activities/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  await c.env.DB.prepare('DELETE FROM itin_activities WHERE id=?').bind(id).run();
+  return c.json({ ok: true });
+});
+
+// ── Admin: Itineraries ──────────────────────────────────────────────────────
+
+app.get('/api/admin/itineraries', async (c) => {
+  const { results } = await c.env.DB.prepare(`
+    SELECT i.*, d.name as dest_name, d.country
+    FROM itin_itineraries i JOIN itin_destinations d ON d.id = i.destination_id
+    ORDER BY i.id DESC LIMIT 200
+  `).all();
+  return c.json(results);
+});
+
+app.delete('/api/admin/itineraries/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  const { results: days } = await c.env.DB.prepare(
+    'SELECT id FROM itin_days WHERE itinerary_id=?'
+  ).bind(id).all<{ id: number }>();
+  for (const day of days)
+    await c.env.DB.prepare('DELETE FROM itin_items WHERE day_id=?').bind(day.id).run();
+  await c.env.DB.prepare('DELETE FROM itin_days WHERE itinerary_id=?').bind(id).run();
+  await c.env.DB.prepare('DELETE FROM itin_itineraries WHERE id=?').bind(id).run();
+  return c.json({ ok: true });
+});
+
+// ── Static assets (catch-all) ───────────────────────────────────────────────
+
 app.all('*', async (c) => c.env.ASSETS.fetch(c.req.raw));
 
 export default app;

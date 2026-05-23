@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import HomePage from './pages/HomePage.jsx';
 import PlannerPage from './pages/PlannerPage.jsx';
 import ItineraryPage from './pages/ItineraryPage.jsx';
+import AdminPage from './pages/AdminPage.jsx';
 import { getItinerary } from './api.js';
 
 const SITE = 'Serendipia Agency';
@@ -12,20 +13,24 @@ export default function App() {
   const [itinerary, setItinerary] = useState(null);
   const [loadingShared, setLoadingShared] = useState(false);
   const [sharedError, setSharedError] = useState(false);
+  const [isAdmin] = useState(() => new URLSearchParams(window.location.search).has('admin'));
 
   // Dynamic document title
   useEffect(() => {
-    if (view === 'itinerary' && itinerary?.destination?.name) {
+    if (isAdmin) {
+      document.title = `Admin · ${SITE}`;
+    } else if (view === 'itinerary' && itinerary?.destination?.name) {
       document.title = `Itinerario en ${itinerary.destination.name} · ${SITE}`;
     } else if (view === 'planner' && selectedDest?.name) {
       document.title = `Planificar en ${selectedDest.name} · ${SITE}`;
     } else {
       document.title = `Planifica tu viaje · ${SITE}`;
     }
-  }, [view, selectedDest, itinerary]);
+  }, [view, selectedDest, itinerary, isAdmin]);
 
   // Load shared itinerary from ?id= URL param
   useEffect(() => {
+    if (isAdmin) return;
     const id = new URLSearchParams(window.location.search).get('id');
     if (id) {
       setLoadingShared(true);
@@ -34,7 +39,7 @@ export default function App() {
         .catch(() => setSharedError(true))
         .finally(() => setLoadingShared(false));
     }
-  }, []);
+  }, [isAdmin]);
 
   function handlePickDest(dest) {
     setSelectedDest(dest);
@@ -78,6 +83,15 @@ export default function App() {
     setSelectedDest(null);
     setView('home');
     window.history.pushState({}, '', '/');
+  }
+
+  if (isAdmin) {
+    return (
+      <>
+        <style>{GLOBAL_CSS}</style>
+        <AdminPage onExit={() => { window.history.pushState({}, '', '/'); window.location.reload(); }} />
+      </>
+    );
   }
 
   if (loadingShared) {
