@@ -4,6 +4,7 @@ import MapView from '../components/MapView.jsx';
 import FullRouteMap from '../components/FullRouteMap.jsx';
 import WeatherStrip from '../components/WeatherStrip.jsx';
 import PackingList from '../components/PackingList.jsx';
+import ActivityDetailModal from '../components/ActivityDetailModal.jsx';
 
 const MONTHS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
@@ -105,6 +106,14 @@ export default function ItineraryPage({ itinerary, onReset }) {
   const [note, setNote] = useState(() => {
     try { return localStorage.getItem(`sa_note_${itinerary.id}`) || ''; } catch { return ''; }
   });
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`sa_fav_${itinerary.id}`);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+  const [showOnlyFavs, setShowOnlyFavs] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState(null);
   const toastTimer = useRef(null);
 
   const dest = itinerary.destination || {};
@@ -163,6 +172,15 @@ export default function ItineraryPage({ itinerary, onReset }) {
     try { localStorage.setItem(`sa_note_${itinerary.id}`, e.target.value); } catch {}
   }
 
+  function toggleFavorite(actId) {
+    setFavorites(prev => {
+      const next = new Set(prev);
+      if (next.has(actId)) next.delete(actId); else next.add(actId);
+      try { localStorage.setItem(`sa_fav_${itinerary.id}`, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }
+
   const catTotals = {};
   const dayTotals = itinerary.days.map(day => {
     let dayCost = 0;
@@ -188,8 +206,9 @@ export default function ItineraryPage({ itinerary, onReset }) {
   const budgetPct = Math.min(100, (budgetUsed / itinerary.budget) * 100);
   const maxCat = Math.max(...Object.values(catTotals), 1);
   const maxDay = Math.max(...dayTotals.map(d => d.cost), 1);
-  const hiddenCount = hiddenCats.size > 0
-    ? allItems.filter(i => hiddenCats.has(i.activity.category)).length : 0;
+  const hiddenCount = allItems.filter(i =>
+    hiddenCats.has(i.activity.category) || (showOnlyFavs && !favorites.has(i.activity.id))
+  ).length;
 
   return (
     <div style={s.page}>
@@ -242,6 +261,15 @@ export default function ItineraryPage({ itinerary, onReset }) {
 
       {showPacking && (
         <PackingList itinerary={itinerary} onClose={() => setShowPacking(false)} />
+      )}
+
+      {selectedActivity && (
+        <ActivityDetailModal
+          activity={selectedActivity}
+          isFav={favorites.has(selectedActivity.id)}
+          onToggleFavorite={() => toggleFavorite(selectedActivity.id)}
+          onClose={() => setSelectedActivity(null)}
+        />
       )}
 
       <nav style={s.nav} className="no-print">
@@ -372,11 +400,11 @@ export default function ItineraryPage({ itinerary, onReset }) {
           startDate={itinerary.start_date} endDate={itinerary.end_date}
         />
 
-        {/* Category filter */}
-        {presentCats.length > 1 && (
+        {/* Category filter + Favorites */}
+        {(presentCats.length > 1 || favorites.size > 0) && (
           <div style={s.catFilter} className="no-print">
             <span style={s.catFilterLabel}>Filtrar:</span>
-            {presentCats.map(cat => {
+            {presentCats.length > 1 && presentCats.map(cat => {
               const active = !hiddenCats.has(cat);
               return (
                 <button
@@ -392,10 +420,22 @@ export default function ItineraryPage({ itinerary, onReset }) {
                 </button>
               );
             })}
-            {hiddenCats.size > 0 && (
+            {favorites.size > 0 && (
+              <button
+                className="cat-pill-btn"
+                style={{
+                  ...s.catPill,
+                  ...(showOnlyFavs ? { background: '#F43F5E', color: '#fff', borderColor: '#F43F5E' } : {}),
+                }}
+                onClick={() => setShowOnlyFavs(p => !p)}
+              >
+                {showOnlyFavs ? '♥' : '♡'} Favoritos ({favorites.size})
+              </button>
+            )}
+            {(hiddenCats.size > 0 || showOnlyFavs) && (
               <span style={s.catHiddenNote}>
                 {hiddenCount} oculta{hiddenCount !== 1 ? 's' : ''} ·{' '}
-                <button style={s.catClearBtn} onClick={() => setHiddenCats(new Set())}>
+                <button style={s.catClearBtn} onClick={() => { setHiddenCats(new Set()); setShowOnlyFavs(false); }}>
                   Ver todo
                 </button>
               </span>
@@ -424,9 +464,11 @@ export default function ItineraryPage({ itinerary, onReset }) {
           const dayCost = dayTotals.find(d => d.day_number === day.day_number)?.cost || 0;
           const showMap = !!mapDays[day.day_number];
           const isCollapsed = !!collapsedDays[day.day_number];
-          const visibleItems = hiddenCats.size === 0
-            ? day.items
-            : day.items.filter(item => !hiddenCats.has(item.activity.category));
+          const visibleItems = day.items.filter(item => {
+            if (hiddenCats.has(item.activity.category)) return false;
+            if (showOnlyFavs && !favorites.has(item.activity.id)) return false;
+            return true;
+          });
           return (
             <div key={day.day_number} style={s.dayBlock} className="day-block">
               <div
@@ -464,7 +506,7 @@ export default function ItineraryPage({ itinerary, onReset }) {
 
               {!isCollapsed && (
                 <>
-                  {visibleItems.length === 0 && hiddenCats.size > 0 ? (
+                  {visibleItems.length === 0 && (hiddenCats.size > 0 || showOnlyFavs) ? (
                     <p style={s.filteredMsg}>
                       Todas las actividades de este día están filtradas.{' '}
                       <button style={s.filteredClearBtn} onClick={() => setHiddenCats(new Set())}>
@@ -484,6 +526,9 @@ export default function ItineraryPage({ itinerary, onReset }) {
                         item={item}
                         isFirst={idx === 0}
                         prevActivity={idx > 0 ? visibleItems[idx - 1].activity : null}
+                        isFav={favorites.has(item.activity.id)}
+                        onToggleFavorite={() => toggleFavorite(item.activity.id)}
+                        onShowDetail={() => setSelectedActivity(item.activity)}
                       />
                     ))
                   )}
@@ -665,7 +710,7 @@ const s = {
     width: '100%', border: '1.5px solid #FDE68A', borderRadius: 10,
     background: 'rgba(255,255,255,0.75)', padding: '12px 14px',
     fontSize: 14, color: '#374151', lineHeight: 1.6, resize: 'vertical',
-    fontFamily: 'inherit',
+    fontFamily: 'inherit', boxSizing: 'border-box',
   },
 
   filteredMsg: { color: '#AAA', fontStyle: 'italic', padding: '12px 0', fontSize: 13 },

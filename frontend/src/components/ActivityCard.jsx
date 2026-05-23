@@ -47,7 +47,7 @@ function mapsPlace(lat, lon, name) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&center=${lat},${lon}`;
 }
 
-export default function ActivityCard({ item, isFirst, prevActivity }) {
+export default function ActivityCard({ item, isFirst, prevActivity, isFav, onToggleFavorite, onShowDetail }) {
   const { activity, start_time, end_time, travel_minutes_from_prev } = item;
   const walk  = travel_minutes_from_prev <= 30;
   const tCost = walk ? 0 : taxiCost(travel_minutes_from_prev);
@@ -60,7 +60,10 @@ export default function ActivityCard({ item, isFirst, prevActivity }) {
           .act-img { display: none !important; }
           .act-time { min-width: 46px !important; }
         }
+        .act-heart:hover { transform: scale(1.22) !important; }
+        .act-detail:hover { background: #0D3B2E !important; color: #fff !important; border-color: #0D3B2E !important; }
       `}</style>
+
       {!isFirst && travel_minutes_from_prev > 0 && (
         <div style={s.leg}>
           <div style={s.legLine} />
@@ -94,7 +97,18 @@ export default function ActivityCard({ item, isFirst, prevActivity }) {
         </div>
 
         <div style={s.info}>
-          <h4 style={s.name}>{activity.name}</h4>
+          <div style={s.infoTop}>
+            <h4 style={s.name}>{activity.name}</h4>
+            <button
+              className="act-heart"
+              style={{ ...s.heartBtn, color: isFav ? '#F43F5E' : '#CCC' }}
+              onClick={onToggleFavorite}
+              title={isFav ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+            >
+              {isFav ? '♥' : '♡'}
+            </button>
+          </div>
+
           {activity.description && <p style={s.desc}>{activity.description}</p>}
 
           <div style={s.meta}>
@@ -123,6 +137,9 @@ export default function ActivityCard({ item, isFirst, prevActivity }) {
                 🌐 Web oficial
               </a>
             )}
+            <button className="act-detail" style={s.detailBtn} onClick={onShowDetail}>
+              Ver detalles →
+            </button>
           </div>
         </div>
       </div>
@@ -146,7 +163,13 @@ const s = {
   img: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
   catPill: { position: 'absolute', bottom: 8, left: 6, right: 6, fontSize: 9, fontWeight: 800, padding: '3px 6px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: 0.3, textAlign: 'center' },
   info: { flex: 1, padding: '14px 16px 14px 14px', minWidth: 0 },
-  name: { fontSize: 15, fontWeight: 800, color: '#1A1A1A', marginBottom: 5, lineHeight: 1.3 },
+  infoTop: { display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 5 },
+  name: { fontSize: 15, fontWeight: 800, color: '#1A1A1A', lineHeight: 1.3, flex: 1 },
+  heartBtn: {
+    background: 'none', border: 'none', fontSize: 18, cursor: 'pointer',
+    padding: '2px 0', flexShrink: 0, lineHeight: 1,
+    transition: 'transform 0.14s ease', display: 'flex', alignItems: 'center',
+  },
   desc: { fontSize: 12, color: '#666', lineHeight: 1.5, marginBottom: 8 },
   meta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, fontSize: 12, color: '#555', marginBottom: 10 },
   dot: { color: '#DDD' },
@@ -154,4 +177,9 @@ const s = {
   paid: { fontWeight: 700, color: '#1A1A1A' },
   links: { display: 'flex', gap: 6, flexWrap: 'wrap' },
   lnk: { fontSize: 11, fontWeight: 700, color: '#0D3B2E', textDecoration: 'none', padding: '4px 10px', borderRadius: 20, border: '1.5px solid #E0DDD8', background: '#FAFAF8' },
+  detailBtn: {
+    fontSize: 11, fontWeight: 700, color: '#0D3B2E', padding: '4px 10px',
+    borderRadius: 20, border: '1.5px solid #E0DDD8', background: '#FAFAF8',
+    cursor: 'pointer', transition: 'background 0.14s, color 0.14s, border-color 0.14s',
+  },
 };
