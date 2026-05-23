@@ -100,6 +100,11 @@ export default function ItineraryPage({ itinerary, onReset }) {
   const [showPacking, setShowPacking] = useState(false);
   const [toast, setToast] = useState('');
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [scrollPct, setScrollPct] = useState(0);
+  const [hiddenCats, setHiddenCats] = useState(new Set());
+  const [note, setNote] = useState(() => {
+    try { return localStorage.getItem(`sa_note_${itinerary.id}`) || ''; } catch { return ''; }
+  });
   const toastTimer = useRef(null);
 
   const dest = itinerary.destination || {};
@@ -110,7 +115,12 @@ export default function ItineraryPage({ itinerary, onReset }) {
   const destInfo = DEST_INFO[dest.name] || null;
 
   useEffect(() => {
-    const onScroll = () => setShowScrollTop(window.scrollY > 450);
+    const onScroll = () => {
+      const scrollTop = window.scrollY;
+      const docH = document.documentElement.scrollHeight - window.innerHeight;
+      setScrollPct(docH > 0 ? Math.min(100, (scrollTop / docH) * 100) : 0);
+      setShowScrollTop(scrollTop > 450);
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -140,6 +150,19 @@ export default function ItineraryPage({ itinerary, onReset }) {
     setCollapsedDays(prev => ({ ...prev, [dayNum]: !prev[dayNum] }));
   }
 
+  function toggleCat(cat) {
+    setHiddenCats(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  }
+
+  function handleNoteChange(e) {
+    setNote(e.target.value);
+    try { localStorage.setItem(`sa_note_${itinerary.id}`, e.target.value); } catch {}
+  }
+
   const catTotals = {};
   const dayTotals = itinerary.days.map(day => {
     let dayCost = 0;
@@ -153,6 +176,7 @@ export default function ItineraryPage({ itinerary, onReset }) {
   });
 
   const allItems = itinerary.days.flatMap(d => d.items);
+  const presentCats = [...new Set(allItems.map(i => i.activity.category))];
   const freeCount = allItems.filter(i => i.activity.price === 0).length;
   const paidCount = allItems.filter(i => i.activity.price > 0).length;
   const avgRating = allItems.length > 0
@@ -164,6 +188,8 @@ export default function ItineraryPage({ itinerary, onReset }) {
   const budgetPct = Math.min(100, (budgetUsed / itinerary.budget) * 100);
   const maxCat = Math.max(...Object.values(catTotals), 1);
   const maxDay = Math.max(...dayTotals.map(d => d.cost), 1);
+  const hiddenCount = hiddenCats.size > 0
+    ? allItems.filter(i => hiddenCats.has(i.activity.category)).length : 0;
 
   return (
     <div style={s.page}>
@@ -188,14 +214,21 @@ export default function ItineraryPage({ itinerary, onReset }) {
         }
         .day-hdr:hover { background: #FAFAF8 !important; }
         .collapse-chevron { transition: transform 0.2s ease; }
+        .cat-pill-btn { transition: background 0.14s, color 0.14s, border-color 0.14s; }
+        .notes-area:focus { outline: none; border-color: #F59E0B !important; box-shadow: 0 0 0 3px rgba(245,158,11,0.12); }
       `}</style>
 
+      {/* Scroll progress bar */}
+      <div style={{ ...s.progressBar, width: `${scrollPct}%` }} className="no-print" />
+
+      {/* Toast */}
       {toast && (
         <div style={s.toast} className="no-print">
           <span style={s.toastIcon}>✓</span> {toast}
         </div>
       )}
 
+      {/* Scroll to top */}
       {showScrollTop && (
         <button
           className="no-print"
@@ -339,10 +372,61 @@ export default function ItineraryPage({ itinerary, onReset }) {
           startDate={itinerary.start_date} endDate={itinerary.end_date}
         />
 
+        {/* Category filter */}
+        {presentCats.length > 1 && (
+          <div style={s.catFilter} className="no-print">
+            <span style={s.catFilterLabel}>Filtrar:</span>
+            {presentCats.map(cat => {
+              const active = !hiddenCats.has(cat);
+              return (
+                <button
+                  key={cat}
+                  className="cat-pill-btn"
+                  style={{
+                    ...s.catPill,
+                    ...(active ? { background: CAT_FG[cat], color: '#fff', borderColor: CAT_FG[cat] } : {}),
+                  }}
+                  onClick={() => toggleCat(cat)}
+                >
+                  {CAT_LABEL[cat]}
+                </button>
+              );
+            })}
+            {hiddenCats.size > 0 && (
+              <span style={s.catHiddenNote}>
+                {hiddenCount} oculta{hiddenCount !== 1 ? 's' : ''} ·{' '}
+                <button style={s.catClearBtn} onClick={() => setHiddenCats(new Set())}>
+                  Ver todo
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Trip notes */}
+        <div style={s.notesCard} className="no-print">
+          <div style={s.notesHead}>
+            <span style={s.notesIcon}>📝</span>
+            <span style={s.notesTitle}>Mis notas del viaje</span>
+            {note && <span style={s.notesSaved}>Guardado ✓</span>}
+          </div>
+          <textarea
+            className="notes-area"
+            style={s.notesArea}
+            placeholder="Apunta aquí lo que quieras: reservas pendientes, alergias, contactos, ideas…"
+            value={note}
+            onChange={handleNoteChange}
+            rows={3}
+          />
+        </div>
+
         {itinerary.days.map(day => {
           const dayCost = dayTotals.find(d => d.day_number === day.day_number)?.cost || 0;
           const showMap = !!mapDays[day.day_number];
           const isCollapsed = !!collapsedDays[day.day_number];
+          const visibleItems = hiddenCats.size === 0
+            ? day.items
+            : day.items.filter(item => !hiddenCats.has(item.activity.category));
           return (
             <div key={day.day_number} style={s.dayBlock} className="day-block">
               <div
@@ -363,7 +447,9 @@ export default function ItineraryPage({ itinerary, onReset }) {
                 <span style={s.dayDate}>{fmtDate(day.date)}</span>
                 <span style={s.dayCost}>€{dayCost.toFixed(0)}</span>
                 <span style={s.dayCount}>
-                  {day.items.length} actividad{day.items.length !== 1 ? 'es' : ''}
+                  {visibleItems.length !== day.items.length
+                    ? `${visibleItems.length}/${day.items.length} actividades`
+                    : `${day.items.length} actividad${day.items.length !== 1 ? 'es' : ''}`}
                 </span>
                 {day.items.length > 0 && !isCollapsed && (
                   <button
@@ -378,19 +464,26 @@ export default function ItineraryPage({ itinerary, onReset }) {
 
               {!isCollapsed && (
                 <>
-                  {day.items.length === 0 ? (
+                  {visibleItems.length === 0 && hiddenCats.size > 0 ? (
+                    <p style={s.filteredMsg}>
+                      Todas las actividades de este día están filtradas.{' '}
+                      <button style={s.filteredClearBtn} onClick={() => setHiddenCats(new Set())}>
+                        Mostrar todo
+                      </button>
+                    </p>
+                  ) : day.items.length === 0 ? (
                     <p style={s.empty}>Sin actividades para este día con el presupuesto restante.</p>
                   ) : showMap ? (
                     <div className="no-print">
                       <MapView key={day.day_number} items={day.items} />
                     </div>
                   ) : (
-                    day.items.map((item, idx) => (
+                    visibleItems.map((item, idx) => (
                       <ActivityCard
                         key={item.activity.id}
                         item={item}
                         isFirst={idx === 0}
-                        prevActivity={idx > 0 ? day.items[idx - 1].activity : null}
+                        prevActivity={idx > 0 ? visibleItems[idx - 1].activity : null}
                       />
                     ))
                   )}
@@ -415,14 +508,19 @@ export default function ItineraryPage({ itinerary, onReset }) {
 const s = {
   page: { minHeight: '100vh', background: '#FFFBF5' },
 
+  progressBar: {
+    position: 'fixed', top: 0, left: 0, zIndex: 600,
+    height: 3, background: 'linear-gradient(90deg, #0D3B2E, #4ADE80)',
+    transition: 'width 0.08s linear', pointerEvents: 'none',
+  },
+
   toast: {
     position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
     background: '#0D3B2E', color: '#fff', borderRadius: 40,
     padding: '12px 24px', fontSize: 14, fontWeight: 700,
     boxShadow: '0 8px 32px rgba(0,0,0,0.22)', zIndex: 500,
     display: 'flex', alignItems: 'center', gap: 8,
-    animation: 'toastIn 0.25s ease',
-    whiteSpace: 'nowrap',
+    animation: 'toastIn 0.25s ease', whiteSpace: 'nowrap',
   },
   toastIcon: { fontSize: 16, color: '#4ADE80' },
 
@@ -539,10 +637,47 @@ const s = {
     margin: 10, borderRadius: 12, flexShrink: 0,
   },
 
+  catFilter: {
+    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+    marginBottom: 24, padding: '12px 16px',
+    background: '#fff', borderRadius: 12, border: '1.5px solid #F0EDE8',
+  },
+  catFilterLabel: { fontSize: 11, fontWeight: 700, color: '#AAA', textTransform: 'uppercase', letterSpacing: 0.5, flexShrink: 0 },
+  catPill: {
+    padding: '5px 14px', borderRadius: 20, border: '1.5px solid #E0DDD8',
+    background: '#F5F5F0', fontSize: 12, fontWeight: 700, color: '#888', cursor: 'pointer',
+  },
+  catHiddenNote: { fontSize: 11, color: '#BBB', marginLeft: 'auto' },
+  catClearBtn: {
+    background: 'none', border: 'none', color: '#0D3B2E', fontWeight: 700,
+    fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline',
+  },
+
+  notesCard: {
+    background: '#FFFBEB', border: '1.5px solid #FDE68A', borderRadius: 16,
+    padding: '16px 20px', marginBottom: 40,
+  },
+  notesHead: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 },
+  notesIcon: { fontSize: 16 },
+  notesTitle: { fontSize: 13, fontWeight: 800, color: '#92400E' },
+  notesSaved: { fontSize: 11, color: '#D97706', marginLeft: 'auto', fontWeight: 600 },
+  notesArea: {
+    width: '100%', border: '1.5px solid #FDE68A', borderRadius: 10,
+    background: 'rgba(255,255,255,0.75)', padding: '12px 14px',
+    fontSize: 14, color: '#374151', lineHeight: 1.6, resize: 'vertical',
+    fontFamily: 'inherit',
+  },
+
+  filteredMsg: { color: '#AAA', fontStyle: 'italic', padding: '12px 0', fontSize: 13 },
+  filteredClearBtn: {
+    background: 'none', border: 'none', color: '#0D3B2E', fontWeight: 700,
+    fontSize: 13, cursor: 'pointer', padding: 0, textDecoration: 'underline',
+  },
+
   dayBlock: { marginBottom: 48 },
   dayHeader: {
     display: 'flex', alignItems: 'center', gap: 10,
-    marginBottom: 20, paddingBottom: 14, borderBottom: '2px solid #F0EDE8',
+    marginBottom: 20, borderBottom: '2px solid #F0EDE8',
     flexWrap: 'wrap', cursor: 'pointer', borderRadius: 8, padding: '8px 4px 14px',
     userSelect: 'none',
   },

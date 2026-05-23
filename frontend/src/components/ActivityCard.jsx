@@ -10,6 +10,25 @@ const CATEGORY_PHOTO = {
   shopping:  '1555529669-e69e7aa0ba9a',
 };
 
+function Stars({ rating }) {
+  const full = Math.floor(rating || 0);
+  const half = (rating || 0) - full >= 0.5;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <span key={i} style={{
+          fontSize: 11,
+          color: i <= full ? '#F59E0B' : (i === full + 1 && half ? '#F59E0B' : '#E0DDD8'),
+          opacity: i === full + 1 && half ? 0.55 : 1,
+        }}>★</span>
+      ))}
+      <span style={{ fontSize: 11, color: '#666', fontWeight: 700, marginLeft: 3 }}>
+        {(rating || 0).toFixed(1)}
+      </span>
+    </span>
+  );
+}
+
 function fmt(hhmm) {
   if (hhmm == null) return '--:--';
   return `${String(Math.floor(hhmm / 100)).padStart(2, '0')}:${String(hhmm % 100).padStart(2, '0')}`;
@@ -79,7 +98,7 @@ export default function ActivityCard({ item, isFirst, prevActivity }) {
           {activity.description && <p style={s.desc}>{activity.description}</p>}
 
           <div style={s.meta}>
-            <span>★ {activity.rating?.toFixed(1)}</span>
+            <Stars rating={activity.rating} />
             <span style={s.dot}>·</span>
             <span>⏱ {activity.duration_minutes} min</span>
             {activity.opening_time != null && (
