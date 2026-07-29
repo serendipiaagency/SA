@@ -9,4 +9,4 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "serendipia_jobs_db"
-database_id = "8c08d4c5-3d39-4f67-b294-e98618b0f867"
+database_id = "75f0b8a1-0e15-459a-8070-17091273e3dd"
