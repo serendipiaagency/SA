@@ -8,6 +8,18 @@ import ActivityDetailModal from '../components/ActivityDetailModal.jsx';
 
 const MONTHS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
+const SLOT_CONFIG = {
+  mañana: { label: 'Mañana', icon: '☀️', color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A' },
+  tarde:  { label: 'Tarde',  icon: '⛅', color: '#F97316', bg: '#FFF7ED', border: '#FDBA74' },
+  noche:  { label: 'Noche',  icon: '🌙', color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD' },
+};
+
+function getSlotKey(t) {
+  if (t < 1300) return 'mañana';
+  if (t < 2000) return 'tarde';
+  return 'noche';
+}
+
 const DEST_PHOTO = {
   'Barcelona':'1583422409516-2895a77efded', 'Lisboa':'1548707309-dcebeab9ea9b',
   'Asturias':'1567359430882-fa16c5b9cbad', 'Madrid':'1543785734-4b6e564642f8',
@@ -231,7 +243,7 @@ export default function ItineraryPage({ itinerary, onReset }) {
           .day-block { page-break-inside: avoid; margin-bottom: 20px !important; }
           .leaflet-container { display: none !important; }
         }
-        .day-hdr:hover { background: #FAFAF8 !important; }
+        .day-hdr:hover { background: #F9FAFB !important; }
         .collapse-chevron { transition: transform 0.2s ease; }
         .cat-pill-btn { transition: background 0.14s, color 0.14s, border-color 0.14s; }
         .notes-area:focus { outline: none; border-color: #F59E0B !important; box-shadow: 0 0 0 3px rgba(245,158,11,0.12); }
@@ -469,47 +481,57 @@ export default function ItineraryPage({ itinerary, onReset }) {
             if (showOnlyFavs && !favorites.has(item.activity.id)) return false;
             return true;
           });
+
+          // Group by time slot preserving order, tracking flat index for travel legs
+          const slotGroups = [];
+          let curSlot = null;
+          visibleItems.forEach((item, idx) => {
+            const sk = getSlotKey(item.start_time);
+            if (sk !== curSlot || slotGroups.length === 0) {
+              slotGroups.push({ slotKey: sk, items: [] });
+              curSlot = sk;
+            }
+            slotGroups[slotGroups.length - 1].items.push({ item, flatIdx: idx });
+          });
+
           return (
             <div key={day.day_number} style={s.dayBlock} className="day-block">
+              {/* Day card header */}
               <div
                 style={s.dayHeader}
                 className="day-hdr"
                 onClick={() => toggleCollapse(day.day_number)}
-                role="button"
-                tabIndex={0}
+                role="button" tabIndex={0}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') toggleCollapse(day.day_number); }}
               >
-                <span
-                  className="collapse-chevron"
-                  style={{ ...s.chevron, transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
-                >
-                  ▾
-                </span>
-                <span style={s.dayNumber}>Día {day.day_number}</span>
-                <span style={s.dayDate}>{fmtDate(day.date)}</span>
-                <span style={s.dayCost}>€{dayCost.toFixed(0)}</span>
-                <span style={s.dayCount}>
-                  {visibleItems.length !== day.items.length
-                    ? `${visibleItems.length}/${day.items.length} actividades`
-                    : `${day.items.length} actividad${day.items.length !== 1 ? 'es' : ''}`}
-                </span>
-                {day.items.length > 0 && !isCollapsed && (
-                  <button
-                    className="no-print"
-                    style={{ ...s.viewToggle, ...(showMap ? s.viewToggleOn : {}) }}
-                    onClick={e => { e.stopPropagation(); toggleMap(day.day_number); }}
-                  >
-                    {showMap ? '📋 Lista' : '🗺️ Mapa'}
-                  </button>
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={s.dayNumber}>Día {day.day_number}</span>
+                  <span style={s.dayDate}>{fmtDate(day.date)}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+                  {dayCost > 0 && <span style={s.dayCost}>€{dayCost.toFixed(0)}</span>}
+                  {day.items.length > 0 && !isCollapsed && (
+                    <button
+                      className="no-print"
+                      style={{ ...s.viewToggle, ...(showMap ? s.viewToggleOn : {}) }}
+                      onClick={e => { e.stopPropagation(); toggleMap(day.day_number); }}
+                    >
+                      {showMap ? '📋' : '🗺️'}
+                    </button>
+                  )}
+                  <span
+                    className="collapse-chevron"
+                    style={{ ...s.chevron, transform: isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  >∧</span>
+                </div>
               </div>
 
               {!isCollapsed && (
-                <>
+                <div style={s.dayBody}>
                   {visibleItems.length === 0 && (hiddenCats.size > 0 || showOnlyFavs) ? (
                     <p style={s.filteredMsg}>
                       Todas las actividades de este día están filtradas.{' '}
-                      <button style={s.filteredClearBtn} onClick={() => setHiddenCats(new Set())}>
+                      <button style={s.filteredClearBtn} onClick={() => { setHiddenCats(new Set()); setShowOnlyFavs(false); }}>
                         Mostrar todo
                       </button>
                     </p>
@@ -520,19 +542,39 @@ export default function ItineraryPage({ itinerary, onReset }) {
                       <MapView key={day.day_number} items={day.items} />
                     </div>
                   ) : (
-                    visibleItems.map((item, idx) => (
-                      <ActivityCard
-                        key={item.activity.id}
-                        item={item}
-                        isFirst={idx === 0}
-                        prevActivity={idx > 0 ? visibleItems[idx - 1].activity : null}
-                        isFav={favorites.has(item.activity.id)}
-                        onToggleFavorite={() => toggleFavorite(item.activity.id)}
-                        onShowDetail={() => setSelectedActivity(item.activity)}
-                      />
-                    ))
+                    slotGroups.map(({ slotKey, items: slotItems }) => {
+                      const cfg = SLOT_CONFIG[slotKey];
+                      return (
+                        <div key={slotKey}>
+                          {/* Slot header */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 0 10px' }}>
+                            <div style={{
+                              width: 32, height: 32, borderRadius: '50%',
+                              background: cfg.bg, border: `1.5px solid ${cfg.border}`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 16, flexShrink: 0,
+                            }}>
+                              {cfg.icon}
+                            </div>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>{cfg.label}</span>
+                          </div>
+                          {/* Items */}
+                          {slotItems.map(({ item, flatIdx }) => (
+                            <ActivityCard
+                              key={item.activity.id}
+                              item={item}
+                              isFirst={flatIdx === 0}
+                              prevActivity={flatIdx > 0 ? visibleItems[flatIdx - 1].activity : null}
+                              isFav={favorites.has(item.activity.id)}
+                              onToggleFavorite={() => toggleFavorite(item.activity.id)}
+                              onShowDetail={() => setSelectedActivity(item.activity)}
+                            />
+                          ))}
+                        </div>
+                      );
+                    })
                   )}
-                </>
+                </div>
               )}
             </div>
           );
@@ -719,27 +761,28 @@ const s = {
     fontSize: 13, cursor: 'pointer', padding: 0, textDecoration: 'underline',
   },
 
-  dayBlock: { marginBottom: 48 },
+  dayBlock: {
+    background: '#fff', borderRadius: 20, border: '1px solid #E5E7EB',
+    boxShadow: '0 2px 16px rgba(0,0,0,0.07)', marginBottom: 16, overflow: 'hidden',
+  },
   dayHeader: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    marginBottom: 20, borderBottom: '2px solid #F0EDE8',
-    flexWrap: 'wrap', cursor: 'pointer', borderRadius: 8, padding: '8px 4px 14px',
-    userSelect: 'none',
+    display: 'flex', alignItems: 'center',
+    padding: '18px 22px', cursor: 'pointer', userSelect: 'none',
   },
-  chevron: { fontSize: 16, color: '#CCC', flexShrink: 0, lineHeight: 1 },
-  dayNumber: { fontSize: 18, fontWeight: 800, color: '#0D3B2E' },
-  dayDate: { fontSize: 13, color: '#888', background: '#F5F5F0', padding: '3px 12px', borderRadius: 20 },
+  dayBody: { padding: '0 22px 20px', borderTop: '1px solid #F3F4F6' },
+  chevron: { fontSize: 15, color: '#9CA3AF', flexShrink: 0, lineHeight: 1, transition: 'transform 0.2s ease', display: 'inline-block' },
+  dayNumber: { fontSize: 17, fontWeight: 800, color: '#111827' },
+  dayDate: { fontSize: 12, color: '#6B7280' },
   dayCost: {
-    fontSize: 12, fontWeight: 700, color: '#92400E',
-    background: '#FEF3C7', border: '1px solid #FCD34D', padding: '3px 10px', borderRadius: 20,
+    fontSize: 13, fontWeight: 700, color: '#F97316',
   },
-  dayCount: { fontSize: 12, color: '#999', marginLeft: 'auto' },
   viewToggle: {
-    fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 20,
-    border: '1.5px solid #E0DDD8', background: '#FAFAF8', color: '#555',
+    fontSize: 13, padding: '5px 10px', borderRadius: 10,
+    border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151',
+    cursor: 'pointer', fontFamily: 'inherit',
   },
-  viewToggleOn: { background: '#0D3B2E', color: '#fff', borderColor: '#0D3B2E' },
-  empty: { color: '#AAA', fontStyle: 'italic', padding: '16px 0' },
+  viewToggleOn: { background: '#111827', color: '#fff', borderColor: '#111827' },
+  empty: { color: '#9CA3AF', fontStyle: 'italic', padding: '16px 4px', fontSize: 13 },
 
   cta: {
     textAlign: 'center', padding: '48px 0 0', borderTop: '1px solid #EEE',

@@ -2,27 +2,26 @@ const CATEGORY_EMOJI = { culture:'🏙', food:'🍽', nature:'🌿', adventure:'
 const CATEGORY_LABEL = { culture:'Cultura', food:'Gastronomía', nature:'Naturaleza', adventure:'Aventura', shopping:'Compras' };
 const CATEGORY_BG    = { culture:'#EBF4FF', food:'#FFF8E1', nature:'#F0FDF4', adventure:'#FFF3E0', shopping:'#FCE4EC' };
 const CATEGORY_FG    = { culture:'#1565C0', food:'#E65100', nature:'#2E7D32', adventure:'#BF360C', shopping:'#880E4F' };
-const CATEGORY_PHOTO = {
-  culture:   '1564349683136-77e08dba1ef3',
-  food:      '1504674900247-0877df9cc836',
-  nature:    '1501854140801-50d01698950b',
-  adventure: '1551632811-561732d1e306',
-  shopping:  '1555529669-e69e7aa0ba9a',
-};
+
+function slotStyle(t) {
+  if (t < 1300) return { color: '#F59E0B', line: '#FDE68A', bg: '#FFFBEB' };
+  if (t < 2000) return { color: '#F97316', line: '#FDBA74', bg: '#FFF7ED' };
+  return { color: '#7C3AED', line: '#C4B5FD', bg: '#F5F3FF' };
+}
 
 function Stars({ rating }) {
   const full = Math.floor(rating || 0);
   const half = (rating || 0) - full >= 0.5;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-      {[1, 2, 3, 4, 5].map(i => (
+      {[1,2,3,4,5].map(i => (
         <span key={i} style={{
           fontSize: 11,
-          color: i <= full ? '#F59E0B' : (i === full + 1 && half ? '#F59E0B' : '#E0DDD8'),
-          opacity: i === full + 1 && half ? 0.55 : 1,
+          color: i <= full ? '#F59E0B' : (i === full+1 && half ? '#F59E0B' : '#E0DDD8'),
+          opacity: i === full+1 && half ? 0.55 : 1,
         }}>★</span>
       ))}
-      <span style={{ fontSize: 11, color: '#666', fontWeight: 700, marginLeft: 3 }}>
+      <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, marginLeft: 3 }}>
         {(rating || 0).toFixed(1)}
       </span>
     </span>
@@ -31,16 +30,16 @@ function Stars({ rating }) {
 
 function fmt(hhmm) {
   if (hhmm == null) return '--:--';
-  return `${String(Math.floor(hhmm / 100)).padStart(2, '0')}:${String(hhmm % 100).padStart(2, '0')}`;
+  return `${String(Math.floor(hhmm/100)).padStart(2,'0')}:${String(hhmm%100).padStart(2,'0')}`;
 }
 
 function taxiCost(min) {
-  const km = (min / 60) * 25;
-  return Math.round(3 + km * 1.2);
+  const km = (min/60)*25;
+  return Math.round(3 + km*1.2);
 }
 
 function mapsDir(aLat, aLon, bLat, bLon, walk) {
-  return `https://www.google.com/maps/dir/?api=1&origin=${aLat},${aLon}&destination=${bLat},${bLon}&travelmode=${walk ? 'walking' : 'driving'}`;
+  return `https://www.google.com/maps/dir/?api=1&origin=${aLat},${aLon}&destination=${bLat},${bLon}&travelmode=${walk?'walking':'driving'}`;
 }
 
 function mapsPlace(lat, lon, name) {
@@ -51,135 +50,136 @@ export default function ActivityCard({ item, isFirst, prevActivity, isFav, onTog
   const { activity, start_time, end_time, travel_minutes_from_prev } = item;
   const walk  = travel_minutes_from_prev <= 30;
   const tCost = walk ? 0 : taxiCost(travel_minutes_from_prev);
-  const photo = `https://images.unsplash.com/photo-${CATEGORY_PHOTO[activity.category]}?w=400&auto=format&fit=crop&q=70`;
+  const sl    = slotStyle(start_time);
 
   return (
-    <div style={s.wrapper}>
+    <div style={{ marginBottom: 4 }}>
       <style>{`
-        @media (max-width: 500px) {
-          .act-img { display: none !important; }
-          .act-time { min-width: 46px !important; }
-        }
         .act-heart:hover { transform: scale(1.22) !important; }
-        .act-detail:hover { background: #0D3B2E !important; color: #fff !important; border-color: #0D3B2E !important; }
+        .act-detail:hover { background: #111827 !important; color: #fff !important; border-color: #111827 !important; }
+        .act-lnk:hover { background: #E5E7EB !important; }
       `}</style>
 
+      {/* Travel leg */}
       {!isFirst && travel_minutes_from_prev > 0 && (
-        <div style={s.leg}>
-          <div style={s.legLine} />
-          <span style={s.legIcon}>{walk ? '🚶' : '🚕'}</span>
-          <span style={s.legText}>
-            {walk ? 'A pie' : 'Taxi / bus'} · {travel_minutes_from_prev} min
-            {tCost > 0 && <> · <b>~€{tCost}</b></>}
-          </span>
-          {prevActivity && (
-            <a href={mapsDir(prevActivity.lat, prevActivity.lon, activity.lat, activity.lon, walk)}
-               target="_blank" rel="noopener noreferrer" style={s.dirBtn}>
-              Cómo llegar ↗
-            </a>
-          )}
+        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+          <div style={{ width: 28, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 2, height: 32, background: sl.line }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 7, paddingLeft: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13 }}>{walk ? '🚶' : '🚕'}</span>
+            <span style={{ fontSize: 12, color: '#6B7280' }}>
+              {walk ? 'A pie' : 'Taxi / bus'} · {travel_minutes_from_prev} min
+              {tCost > 0 && <> · <b style={{ color: '#374151' }}>~€{tCost}</b></>}
+            </span>
+            {prevActivity && (
+              <a
+                href={mapsDir(prevActivity.lat, prevActivity.lon, activity.lat, activity.lon, walk)}
+                target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 11, fontWeight: 700, color: '#374151', textDecoration: 'none', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: 20, padding: '2px 9px' }}
+              >
+                Cómo llegar ↗
+              </a>
+            )}
+          </div>
         </div>
       )}
 
-      <div style={s.card}>
-        <div style={s.timeCol} className="act-time">
-          <span style={s.t1}>{fmt(start_time)}</span>
-          <div style={s.tLine} />
-          <span style={s.t2}>{fmt(end_time)}</span>
+      {/* Activity row */}
+      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+        {/* Timeline gutter */}
+        <div style={{ width: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 13, flexShrink: 0 }}>
+          <div style={{
+            width: 11, height: 11, borderRadius: '50%',
+            border: `2.5px solid ${sl.color}`, background: '#fff',
+            flexShrink: 0, zIndex: 1,
+            boxShadow: `0 0 0 3px ${sl.bg}`,
+          }} />
+          <div style={{ width: 2, flex: 1, background: sl.line, marginTop: 4, minHeight: 28 }} />
         </div>
 
-        <div style={s.imgWrap} className="act-img">
-          <img src={photo} alt={activity.category} style={s.img}
-               onError={e => { e.target.style.display = 'none'; }} />
-          <span style={{ ...s.catPill, background: CATEGORY_BG[activity.category], color: CATEGORY_FG[activity.category] }}>
-            {CATEGORY_EMOJI[activity.category]} {CATEGORY_LABEL[activity.category]}
-          </span>
-        </div>
-
-        <div style={s.info}>
-          <div style={s.infoTop}>
-            <h4 style={s.name}>{activity.name}</h4>
-            <button
-              className="act-heart"
-              style={{ ...s.heartBtn, color: isFav ? '#F43F5E' : '#CCC' }}
-              onClick={onToggleFavorite}
-              title={isFav ? 'Quitar de favoritos' : 'Añadir a favoritos'}
-            >
-              {isFav ? '♥' : '♡'}
-            </button>
+        {/* Content */}
+        <div style={{ flex: 1, paddingLeft: 12, paddingBottom: 6 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: sl.color, marginBottom: 6, letterSpacing: 0.1 }}>
+            {fmt(start_time)} – {fmt(end_time)}
           </div>
 
-          {activity.description && <p style={s.desc}>{activity.description}</p>}
+          <div style={{ background: '#F5F6F8', borderRadius: 16, padding: '14px 16px' }}>
+            {/* Name + heart */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: activity.description ? 6 : 10 }}>
+              <h4 style={{ fontSize: 15, fontWeight: 800, color: '#111827', lineHeight: 1.3, flex: 1, margin: 0 }}>
+                {activity.name}
+              </h4>
+              <button
+                className="act-heart"
+                style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', padding: '2px 0', flexShrink: 0, lineHeight: 1, color: isFav ? '#F43F5E' : '#D1D5DB', transition: 'transform 0.14s ease' }}
+                onClick={onToggleFavorite}
+                title={isFav ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+              >
+                {isFav ? '♥' : '♡'}
+              </button>
+            </div>
 
-          <div style={s.meta}>
-            <Stars rating={activity.rating} />
-            <span style={s.dot}>·</span>
-            <span>⏱ {activity.duration_minutes} min</span>
-            {activity.opening_time != null && (
-              <>
-                <span style={s.dot}>·</span>
-                <span>🕐 {fmt(activity.opening_time)}–{fmt(activity.closing_time)}</span>
-              </>
+            {activity.description && (
+              <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: '0 0 10px' }}>
+                {activity.description}
+              </p>
             )}
-            <span style={s.dot}>·</span>
-            <span style={activity.price > 0 ? s.paid : s.free}>
-              {activity.price > 0 ? `💶 €${activity.price.toFixed(0)}` : '✓ Gratis'}
-            </span>
-          </div>
 
-          <div style={s.links}>
-            <a href={mapsPlace(activity.lat, activity.lon, activity.name)}
-               target="_blank" rel="noopener noreferrer" style={s.lnk}>
-              📍 Ver en mapa
-            </a>
-            {activity.website && (
-              <a href={activity.website} target="_blank" rel="noopener noreferrer" style={s.lnk}>
-                🌐 Web oficial
+            {/* Meta */}
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 5, fontSize: 12, color: '#6B7280', marginBottom: 12 }}>
+              <Stars rating={activity.rating} />
+              <span style={{ color: '#D1D5DB' }}>·</span>
+              <span>⏱ {activity.duration_minutes} min</span>
+              {activity.opening_time != null && (
+                <>
+                  <span style={{ color: '#D1D5DB' }}>·</span>
+                  <span>🕐 {fmt(activity.opening_time)}–{fmt(activity.closing_time)}</span>
+                </>
+              )}
+              <span style={{ color: '#D1D5DB' }}>·</span>
+              <span style={{ fontWeight: 700, color: activity.price > 0 ? '#374151' : '#2E7D32' }}>
+                {activity.price > 0 ? `💶 €${activity.price.toFixed(0)}` : '✓ Gratis'}
+              </span>
+              <span style={{
+                background: CATEGORY_BG[activity.category], color: CATEGORY_FG[activity.category],
+                fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 99,
+                textTransform: 'uppercase', letterSpacing: 0.3,
+              }}>
+                {CATEGORY_EMOJI[activity.category]} {CATEGORY_LABEL[activity.category]}
+              </span>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <a
+                href={mapsPlace(activity.lat, activity.lon, activity.name)}
+                target="_blank" rel="noopener noreferrer"
+                className="act-lnk"
+                style={{ fontSize: 11, fontWeight: 700, color: '#374151', textDecoration: 'none', padding: '4px 10px', borderRadius: 20, border: '1px solid #E5E7EB', background: '#fff', transition: 'background 0.12s' }}
+              >
+                📍 Mapa
               </a>
-            )}
-            <button className="act-detail" style={s.detailBtn} onClick={onShowDetail}>
-              Ver detalles →
-            </button>
+              {activity.website && (
+                <a
+                  href={activity.website} target="_blank" rel="noopener noreferrer"
+                  className="act-lnk"
+                  style={{ fontSize: 11, fontWeight: 700, color: '#374151', textDecoration: 'none', padding: '4px 10px', borderRadius: 20, border: '1px solid #E5E7EB', background: '#fff', transition: 'background 0.12s' }}
+                >
+                  🌐 Web
+                </a>
+              )}
+              <button
+                className="act-detail"
+                onClick={onShowDetail}
+                style={{ fontSize: 11, fontWeight: 700, color: '#374151', padding: '4px 10px', borderRadius: 20, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.12s, color 0.12s, border-color 0.12s' }}
+              >
+                Ver detalles →
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-const s = {
-  wrapper: { marginBottom: 0 },
-  leg: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 0 6px 52px' },
-  legLine: { width: 2, height: 28, background: '#E0DDD8', flexShrink: 0 },
-  legIcon: { fontSize: 16 },
-  legText: { fontSize: 13, color: '#666' },
-  dirBtn: { fontSize: 11, fontWeight: 700, color: '#0D3B2E', textDecoration: 'none', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 20, padding: '3px 10px' },
-  card: { display: 'flex', alignItems: 'stretch', background: '#fff', borderRadius: 16, overflow: 'hidden', border: '1.5px solid #F0EDE8', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' },
-  timeCol: { display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 52, padding: '14px 0', gap: 2, flexShrink: 0 },
-  t1: { fontSize: 12, fontWeight: 800, color: '#0D3B2E' },
-  t2: { fontSize: 11, fontWeight: 600, color: '#AAA' },
-  tLine: { width: 2, flex: 1, background: '#E8E5E0', minHeight: 16, margin: '3px 0' },
-  imgWrap: { width: 110, minWidth: 110, position: 'relative', overflow: 'hidden', flexShrink: 0, background: '#F5F5F0' },
-  img: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
-  catPill: { position: 'absolute', bottom: 8, left: 6, right: 6, fontSize: 9, fontWeight: 800, padding: '3px 6px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: 0.3, textAlign: 'center' },
-  info: { flex: 1, padding: '14px 16px 14px 14px', minWidth: 0 },
-  infoTop: { display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 5 },
-  name: { fontSize: 15, fontWeight: 800, color: '#1A1A1A', lineHeight: 1.3, flex: 1 },
-  heartBtn: {
-    background: 'none', border: 'none', fontSize: 18, cursor: 'pointer',
-    padding: '2px 0', flexShrink: 0, lineHeight: 1,
-    transition: 'transform 0.14s ease', display: 'flex', alignItems: 'center',
-  },
-  desc: { fontSize: 12, color: '#666', lineHeight: 1.5, marginBottom: 8 },
-  meta: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, fontSize: 12, color: '#555', marginBottom: 10 },
-  dot: { color: '#DDD' },
-  free: { fontWeight: 700, color: '#2E7D32' },
-  paid: { fontWeight: 700, color: '#1A1A1A' },
-  links: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  lnk: { fontSize: 11, fontWeight: 700, color: '#0D3B2E', textDecoration: 'none', padding: '4px 10px', borderRadius: 20, border: '1.5px solid #E0DDD8', background: '#FAFAF8' },
-  detailBtn: {
-    fontSize: 11, fontWeight: 700, color: '#0D3B2E', padding: '4px 10px',
-    borderRadius: 20, border: '1.5px solid #E0DDD8', background: '#FAFAF8',
-    cursor: 'pointer', transition: 'background 0.14s, color 0.14s, border-color 0.14s',
-  },
-};
